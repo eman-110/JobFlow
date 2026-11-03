@@ -5,12 +5,13 @@ import java.util.Map;
 
 public class Main {
     public static void main(String[] args) {
-        List<Job> jobs = new ArrayList<>();
-        jobs.add(new Job("Java Developer", "Google", "Mountain View", 120000));
-        jobs.add(new Job("Software Engineer", "Microsoft", "Redmond", 115000));
-        jobs.add(new Job("Backend Developer", "Amazon", "Seattle", 140000));
-        jobs.add(new Job("React Native Developer", "Google", "New York", 110000));
-        jobs.add(new Job("Android Developer", "Meta", "Menlo Park", 95000));
+        Repository<Job> jobRepository = new Repository<>();
+        jobRepository.add(new Job("Java Developer", "Google", "Mountain View", 120000));
+        jobRepository.add(new Job("Software Engineer", "Microsoft", "Redmond", 115000));
+        jobRepository.add(new Job("Backend Developer", "Amazon", "Seattle", 140000));
+        jobRepository.add(new Job("React Native Developer", "Google", "New York", 110000));
+        jobRepository.add(new Job("Android Developer", "Meta", "Menlo Park", 95000));
+        List<Job> jobs = jobRepository.getAll();
 
         try {
             printJob(new Job("Java Developer", "Google", "London", -50000));
@@ -18,9 +19,27 @@ public class Main {
             System.out.println(e.getMessage());
         }
 
-        for (Job job : jobs) {
+        for (Job job : jobRepository.getAll()) {
             printJob(job);
         }
+
+        Repository<String> skillRepository = new Repository<>();
+        skillRepository.add("Java");
+        skillRepository.add("Spring Boot");
+        skillRepository.add("PostgreSQL");
+        System.out.println("Skills:");
+        printItems(skillRepository.getAll());
+
+        List<Integer> salaries = List.of(100000, 120000, 140000);
+        System.out.println("Total integer salaries: " + calculateTotal(salaries));
+        List<Double> bonusAmounts = List.of(1250.5, 2000.0, 749.5);
+        System.out.println("Total double amounts: " + calculateTotal(bonusAmounts));
+
+        List<JobSeeker> jobSeekers = new ArrayList<>();
+        jobSeekers.add(new JobSeeker("Eman", "eman@example.com"));
+        jobSeekers.add(new JobSeeker("Alex", "alex@example.com"));
+        System.out.println("Users:");
+        displayUsers(jobSeekers);
 
         findJobsByCompany(jobs, "Google");
 
@@ -65,6 +84,26 @@ public class Main {
         if (highestPayingJob != null) {
             System.out.println("Highest paying job:");
             printJob(highestPayingJob);
+        }
+    }
+
+    public static <T> void printItems(List<T> items) {
+        for (T item : items) {
+            System.out.println(item);
+        }
+    }
+
+    public static <T extends Number> double calculateTotal(List<T> numbers) {
+        double total = 0;
+        for (T number : numbers) {
+            total += number.doubleValue();
+        }
+        return total;
+    }
+
+    public static void displayUsers(List<? extends User> users) {
+        for (User user : users) {
+            System.out.println(user.getName());
         }
     }
 
