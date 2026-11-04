@@ -1,7 +1,9 @@
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class Main {
     public static void main(String[] args) {
@@ -42,6 +44,34 @@ public class Main {
         displayUsers(jobSeekers);
 
         findJobsByCompany(jobs, "Google");
+
+        System.out.println("High-paying jobs:");
+        List<Job> highPayingJobs = getHighPayingJobs(jobs, 115000);
+        for (Job job : highPayingJobs) {
+            printJob(job);
+        }
+
+        System.out.println("Job titles:");
+        printItems(getJobTitles(jobs));
+
+        System.out.println("Google job count: " + countJobsByCompany(jobs, "Google"));
+
+        System.out.println("Jobs sorted by salary:");
+        for (Job job : sortBySalaryDescending(jobs)) {
+            printJob(job);
+        }
+
+        Optional<Job> googleJob = findFirstJobByCompany(jobs, "Google");
+        googleJob.ifPresent(job -> System.out.println("First Google job: " + job.getTitle()));
+
+        System.out.println("Total job salaries: " + calculateTotalJobSalary(jobs));
+
+        System.out.println("Google job titles by salary:");
+        jobs.stream()
+                .filter(job -> job.getCompany().equalsIgnoreCase("Google"))
+                .sorted(Comparator.comparingDouble(Job::getSalary).reversed())
+                .map(Job::getTitle)
+                .forEach(System.out::println);
 
         jobs.get(0).apply();
         System.out.println("Status: " + jobs.get(0).getStatus());
@@ -85,6 +115,9 @@ public class Main {
             System.out.println("Highest paying job:");
             printJob(highestPayingJob);
         }
+
+        findHighestPayingJobStream(jobs)
+                .ifPresent(job -> System.out.println("Highest paying job (stream): " + job.getTitle()));
     }
 
     public static <T> void printItems(List<T> items) {
@@ -113,6 +146,42 @@ public class Main {
                 printJob(job);
             }
         }
+    }
+
+    public static List<Job> getHighPayingJobs(List<Job> jobs, double minimumSalary) {
+        return jobs.stream()
+                .filter(job -> job.getSalary() >= minimumSalary)
+                .toList();
+    }
+
+    public static List<String> getJobTitles(List<Job> jobs) {
+        return jobs.stream()
+                .map(Job::getTitle)
+                .toList();
+    }
+
+    public static long countJobsByCompany(List<Job> jobs, String company) {
+        return jobs.stream()
+                .filter(job -> job.getCompany().equalsIgnoreCase(company))
+                .count();
+    }
+
+    public static List<Job> sortBySalaryDescending(List<Job> jobs) {
+        return jobs.stream()
+                .sorted(Comparator.comparingDouble(Job::getSalary).reversed())
+                .toList();
+    }
+
+    public static Optional<Job> findFirstJobByCompany(List<Job> jobs, String company) {
+        return jobs.stream()
+                .filter(job -> job.getCompany().equalsIgnoreCase(company))
+                .findFirst();
+    }
+
+    public static double calculateTotalJobSalary(List<Job> jobs) {
+        return jobs.stream()
+                .map(Job::getSalary)
+                .reduce(0.0, Double::sum);
     }
 
     public static Job findJobById(Map<Integer, Job> jobsById, int id) {
@@ -146,6 +215,11 @@ public class Main {
             }
         }
         return highestPayingJob;
+    }
+
+    public static Optional<Job> findHighestPayingJobStream(List<Job> jobs) {
+        return jobs.stream()
+                .max(Comparator.comparingDouble(Job::getSalary));
     }
 
     private static void printJob(Job job) {
