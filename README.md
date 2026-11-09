@@ -1,15 +1,39 @@
 # JobFlow
 
-JobFlow is a small Java application for managing and exploring job listings. It demonstrates object-oriented design, generic repositories, dependency injection, streams, logging, and Maven.
+JobFlow is a Java application for managing and exploring job listings. It demonstrates object-oriented design, generic repositories, dependency injection, streams, logging, Maven, and common data structures and algorithms.
 
 ## Features
 
-- Add, list, search, and sort job listings.
+- Add, list, search, and sort job listings by salary.
 - Filter jobs by company, title, and minimum salary; calculate total salaries.
 - Track application status and prevent duplicate applications.
 - Simulate email and WhatsApp notifications.
 - Load application settings from `application.properties`.
 - Protect repository data with unmodifiable list copies.
+
+## Data structures and algorithms
+
+The `com.jobflow.algorithm` package includes:
+
+- **Searching:** linear search and binary search on sorted arrays.
+- **Sorting:** bubble sort, selection sort, insertion sort, and merge sort.
+- **Hashing:** optimized two-sum, duplicate detection, frequency counting, first non-repeating character, and grouping anagrams.
+- **Linked lists:** singly linked and doubly linked list operations, including reversal and finding the middle node.
+- **Stacks and queues:** an array-backed stack and a circular array-backed queue.
+- **Array algorithms:** searching, aggregation, reversal, and two-sum examples.
+
+`JobService.sortJobsBySalaryAscending()` demonstrates sorting job results with Java's comparator without changing repository order.
+
+## Coding interview practice
+
+The current interview-style algorithm examples include:
+
+- Validating parentheses and brackets with a stack.
+- Finding two numbers that sum to a target with a hash map.
+- Finding the first non-repeating character and grouping anagrams with hashing.
+- Finding the middle linked-list node using slow and fast pointers.
+
+Algorithm tests cover empty and already-sorted arrays, duplicates, negative values, and data-structure boundary cases.
 
 ## Technologies
 
@@ -32,11 +56,17 @@ src/
                       SmsNotification, WhatsAppNotification
       repository/     Repository
       service/        JobService
+      algorithm/      ArrayAlgorithms, ArrayQueue, ArrayStack,
+                      DoublyLinkedList, HashingAlgorithms,
+                      SearchingAlgorithms, SinglyLinkedList,
+                      SortingAlgorithms, ValidParentheses
     resources/
       application.properties
   test/
-    java/com/jobflow/service/
-      JobServiceTest.java
+    java/com/jobflow/
+      algorithm/      ArrayAlgorithmsTest, DataStructuresTest,
+                      SearchingSortingHashingTest
+      service/        JobServiceTest
 pom.xml
 README.md
 ```
