@@ -1,3 +1,5 @@
+package com.jobflow.repository;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +11,6 @@ public class Repository<T> {
     }
 
     public List<T> getAll() {
-        return items;
+        return List.copyOf(items);
     }
 }

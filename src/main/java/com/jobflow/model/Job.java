@@ -1,9 +1,11 @@
+package com.jobflow.model;
+
 public class Job {
     private String title;
     private String company;
     private String location;
     private double salary;
-    private String status = "Saved";
+    private JobStatus status = JobStatus.SAVED;
 
     public Job(String title, String company, String location, double salary) {
         if (salary < 0) {
@@ -32,17 +34,17 @@ public class Job {
         return salary;
     }
 
-    public String getStatus() {
+    public JobStatus getStatus() {
         return status;
     }
 
     public void apply() {
-        if ("Applied".equals(status)) {
-            System.out.println("You have already applied for this job.");
+        if (status == JobStatus.APPLIED) {
+            System.out.println("Already applied.");
             return;
         }
 
-        status = "Applied";
-        System.out.println("Application submitted for " + title + " at " + company + ".");
+        status = JobStatus.APPLIED;
+        System.out.println("Application submitted.");
     }
 }
