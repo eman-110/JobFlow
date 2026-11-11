@@ -10,6 +10,7 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Simulate email and WhatsApp notifications.
 - Load application settings from `application.properties`.
 - Protect repository data with unmodifiable list copies.
+- Serve sample REST endpoints for a greeting and job listings with Spring Boot.
 
 ## Data structures and algorithms
 
@@ -39,6 +40,8 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 
 - Java 25 (LTS)
 - Apache Maven
+- Spring Boot 4.1.2
+- Spring Web MVC
 - SLF4J with the SLF4J Simple logging implementation
 - JUnit Jupiter
 
@@ -48,8 +51,11 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 src/
   main/
     java/com/jobflow/
+      JobFlowApplication
+      api/            JobResponse
       app/            Main
       config/         AppConfig
+      controller/    HelloController, JobController
       exception/      JobNotFoundException
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
@@ -87,6 +93,16 @@ Run the unit tests with:
 ```powershell
 mvn test
 ```
+
+Start the REST API with:
+
+```powershell
+mvn spring-boot:run
+```
+
+The sample endpoints are available at `http://localhost:8080/hello`,
+`http://localhost:8080/api/jobs`, `http://localhost:8080/api/jobs/101`, and
+`http://localhost:8080/api/jobs/search?company=Google`.
 
 ## Future improvements
 
