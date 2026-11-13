@@ -1,6 +1,11 @@
 package com.jobflow.model;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class Job {
+    private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
+
+    private final int id;
     private String title;
     private String company;
     private String location;
@@ -8,14 +13,24 @@ public class Job {
     private JobStatus status = JobStatus.SAVED;
 
     public Job(String title, String company, String location, double salary) {
+        this(NEXT_ID.getAndIncrement(), title, company, location, salary);
+    }
+
+    public Job(int id, String title, String company, String location, double salary) {
         if (salary < 0) {
             throw new IllegalArgumentException("Salary cannot be negative.");
         }
 
+        this.id = id;
+        NEXT_ID.accumulateAndGet(id + 1, Math::max);
         this.title = title;
         this.company = company;
         this.location = location;
         this.salary = salary;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public String getTitle() {
