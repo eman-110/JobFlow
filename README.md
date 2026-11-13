@@ -11,6 +11,8 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Load application settings from `application.properties`.
 - Protect repository data with unmodifiable list copies.
 - Serve sample REST endpoints for a greeting and job listings with Spring Boot.
+- Use a Spring-managed job repository and service for listing, ID lookup, company
+  search, and minimum-salary filtering.
 
 ## Data structures and algorithms
 
@@ -60,7 +62,7 @@ src/
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
                       SmsNotification, WhatsAppNotification
-      repository/     Repository
+      repository/     JobRepository, Repository
       service/        JobService
       algorithm/      ArrayAlgorithms, ArrayQueue, ArrayStack,
                       DoublyLinkedList, HashingAlgorithms,
@@ -101,8 +103,9 @@ mvn spring-boot:run
 ```
 
 The sample endpoints are available at `http://localhost:8080/hello`,
-`http://localhost:8080/api/jobs`, `http://localhost:8080/api/jobs/101`, and
-`http://localhost:8080/api/jobs/search?company=Google`.
+`http://localhost:8080/api/jobs`, `http://localhost:8080/api/jobs/101`,
+`http://localhost:8080/api/jobs/search?company=Tech%20Solutions`, and
+`http://localhost:8080/api/jobs/high-paying?minimumSalary=150000`.
 
 ## Future improvements
 

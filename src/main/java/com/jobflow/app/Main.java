@@ -8,6 +8,7 @@ import com.jobflow.model.User;
 import com.jobflow.notification.EmailNotification;
 import com.jobflow.notification.NotificationService;
 import com.jobflow.notification.WhatsAppNotification;
+import com.jobflow.repository.JobRepository;
 import com.jobflow.repository.Repository;
 import com.jobflow.service.JobService;
 
@@ -24,7 +25,7 @@ public class Main {
         System.out.println("Application: " + config.getName());
         System.out.println("Version: " + config.getVersion());
 
-        Repository<Job> repository = new Repository<>();
+        JobRepository repository = new JobRepository(List.of());
         NotificationService notification = new EmailNotification();
         JobService jobService = new JobService(repository, notification);
 

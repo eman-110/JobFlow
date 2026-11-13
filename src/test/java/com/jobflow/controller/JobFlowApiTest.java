@@ -1,8 +1,10 @@
 package com.jobflow.controller;
 
+import com.jobflow.JobFlowApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -11,7 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({HelloController.class, JobController.class})
+@SpringBootTest(classes = JobFlowApplication.class)
+@AutoConfigureMockMvc
 class JobFlowApiTest {
 
     @Autowired
@@ -36,17 +39,29 @@ class JobFlowApiTest {
     }
 
     @Test
-    void shouldBindJobIdFromPath() throws Exception {
-        mockMvc.perform(get("/api/jobs/42"))
+    void shouldReturnJobByIdOrNotFound() throws Exception {
+        mockMvc.perform(get("/api/jobs/101"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.id").value(101))
                 .andExpect(jsonPath("$.title").value("Java Developer"));
+
+        mockMvc.perform(get("/api/jobs/999"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
     void shouldBindCompanyFromQueryParameter() throws Exception {
-        mockMvc.perform(get("/api/jobs/search").param("company", "Google"))
+        mockMvc.perform(get("/api/jobs/search").param("company", "tEcH sOlUtIoNs"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Searching jobs at: Google"));
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].company").value("Tech Solutions"));
+    }
+
+    @Test
+    void shouldFilterJobsByMinimumSalary() throws Exception {
+        mockMvc.perform(get("/api/jobs/high-paying").param("minimumSalary", "150000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].salary").value(150000.0));
     }
 }
