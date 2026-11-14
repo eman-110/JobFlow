@@ -2,6 +2,7 @@ package com.jobflow.service;
 
 import com.jobflow.model.Job;
 import com.jobflow.model.JobStatus;
+import com.jobflow.exception.JobNotFoundException;
 import com.jobflow.notification.NotificationService;
 import com.jobflow.repository.JobRepository;
 import org.slf4j.Logger;
@@ -31,12 +32,54 @@ public class JobService {
         logger.info("Job added: {}", job.getTitle());
     }
 
+    public Job createJob(String title, String company, String location, double salary) {
+        validateRequiredText(title, "title");
+        validateRequiredText(company, "company");
+        validateRequiredText(location, "location");
+        Job job = new Job(title, company, location, salary);
+        repository.add(job);
+        logger.info("Job created: {}", job.getTitle());
+        return job;
+    }
+
     public List<Job> getAllJobs() {
         return repository.findAll();
     }
 
     public Optional<Job> findJobById(int id) {
         return repository.findById(id);
+    }
+
+    public Job getJobById(int id) {
+        return findJobById(id)
+                .orElseThrow(() -> new JobNotFoundException("Job with ID " + id + " was not found."));
+    }
+
+    public Job updateJob(int id, String title, String company, String location, double salary) {
+        validateRequiredText(title, "title");
+        validateRequiredText(company, "company");
+        validateRequiredText(location, "location");
+        Job job = getJobById(id);
+        job.updateDetails(title, company, location, salary);
+        return job;
+    }
+
+    public Job updateSalary(int id, double salary) {
+        Job job = getJobById(id);
+        job.updateSalary(salary);
+        return job;
+    }
+
+    public Job updateStatus(int id, JobStatus status) {
+        Job job = getJobById(id);
+        job.updateStatus(status);
+        return job;
+    }
+
+    public void deleteJob(int id) {
+        if (!repository.deleteById(id)) {
+            throw new JobNotFoundException("Job with ID " + id + " was not found.");
+        }
     }
 
     public List<Job> findJobsByCompany(String company) {
@@ -90,5 +133,11 @@ public class JobService {
                 .stream()
                 .filter(job -> job.getTitle().toLowerCase().contains(keyword.toLowerCase()))
                 .toList();
+    }
+
+    private static void validateRequiredText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank.");
+        }
     }
 }

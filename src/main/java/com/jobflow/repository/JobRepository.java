@@ -36,4 +36,8 @@ public class JobRepository {
                 .filter(job -> job.getId() == id)
                 .findFirst();
     }
+
+    public boolean deleteById(int id) {
+        return jobs.removeIf(job -> job.getId() == id);
+    }
 }

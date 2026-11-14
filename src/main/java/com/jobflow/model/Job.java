@@ -53,6 +53,28 @@ public class Job {
         return status;
     }
 
+    public void updateDetails(String title, String company, String location, double salary) {
+        validateSalary(salary);
+        this.title = title;
+        this.company = company;
+        this.location = location;
+        this.salary = salary;
+    }
+
+    public void updateSalary(double salary) {
+        validateSalary(salary);
+        this.salary = salary;
+    }
+
+    public void updateStatus(JobStatus nextStatus) {
+        if (nextStatus == null || !status.canTransitionTo(nextStatus)) {
+            throw new IllegalStateException(
+                    "Cannot change job status from " + status + " to " + nextStatus + "."
+            );
+        }
+        status = nextStatus;
+    }
+
     public void apply() {
         if (status == JobStatus.APPLIED) {
             System.out.println("Already applied.");
@@ -61,5 +83,11 @@ public class Job {
 
         status = JobStatus.APPLIED;
         System.out.println("Application submitted.");
+    }
+
+    private static void validateSalary(double salary) {
+        if (!Double.isFinite(salary) || salary < 0) {
+            throw new IllegalArgumentException("Salary must be a non-negative finite number.");
+        }
     }
 }

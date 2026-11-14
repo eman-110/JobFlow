@@ -10,7 +10,8 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Simulate email and WhatsApp notifications.
 - Load application settings from `application.properties`.
 - Protect repository data with unmodifiable list copies.
-- Serve sample REST endpoints for a greeting and job listings with Spring Boot.
+- Serve REST endpoints for job listing CRUD, salary updates, application status,
+  search, and filtering with Spring Boot.
 - Use a Spring-managed job repository and service for listing, ID lookup, company
   search, and minimum-salary filtering.
 
@@ -54,11 +55,12 @@ src/
   main/
     java/com/jobflow/
       JobFlowApplication
-      api/            JobResponse
+      api/            JobRequest, JobResponse, SalaryUpdateRequest,
+                      StatusUpdateRequest
       app/            Main
       config/         AppConfig
       controller/    HelloController, JobController
-      exception/      JobNotFoundException
+      exception/      ApiExceptionHandler, JobNotFoundException
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
                       SmsNotification, WhatsAppNotification
@@ -102,10 +104,20 @@ Start the REST API with:
 mvn spring-boot:run
 ```
 
-The sample endpoints are available at `http://localhost:8080/hello`,
-`http://localhost:8080/api/jobs`, `http://localhost:8080/api/jobs/101`,
-`http://localhost:8080/api/jobs/search?company=Tech%20Solutions`, and
-`http://localhost:8080/api/jobs/high-paying?minimumSalary=150000`.
+The endpoints are available at `http://localhost:8080/hello` and
+`http://localhost:8080/api/jobs`. The job API supports:
+
+- `POST /api/jobs` with `title`, `company`, `location`, and `salary` to create
+  a listing (returns `201 Created`).
+- `GET /api/jobs` and `GET /api/jobs/{id}` to list or retrieve jobs.
+- `PUT /api/jobs/{id}` to replace listing details.
+- `PATCH /api/jobs/{id}/salary` with `{"salary": 125000}` to change salary only.
+- `PATCH /api/jobs/{id}/status` with `{"status": "APPLIED"}` to update
+  application status. Valid transitions are `SAVED -> APPLIED`,
+  `APPLIED -> INTERVIEW|REJECTED`, and `INTERVIEW -> REJECTED`.
+- `DELETE /api/jobs/{id}` to remove a listing.
+- `GET /api/jobs/search?company=Tech%20Solutions` and
+  `GET /api/jobs/high-paying?minimumSalary=150000` for filtering.
 
 ## Future improvements
 
