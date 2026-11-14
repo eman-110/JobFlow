@@ -12,6 +12,7 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Protect repository data with unmodifiable list copies.
 - Serve REST endpoints for job listing CRUD, salary updates, application status,
   search, and filtering with Spring Boot.
+- Validate API request bodies and return timestamped, structured JSON errors.
 - Use a Spring-managed job repository and service for listing, ID lookup, company
   search, and minimum-salary filtering.
 
@@ -45,6 +46,7 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 - Apache Maven
 - Spring Boot 4.1.2
 - Spring Web MVC
+- Jakarta Bean Validation
 - SLF4J with the SLF4J Simple logging implementation
 - JUnit Jupiter
 
@@ -118,6 +120,11 @@ The endpoints are available at `http://localhost:8080/hello` and
 - `DELETE /api/jobs/{id}` to remove a listing.
 - `GET /api/jobs/search?company=Tech%20Solutions` and
   `GET /api/jobs/high-paying?minimumSalary=150000` for filtering.
+
+Request bodies are validated: text fields must be nonblank and at most 100
+characters, and salaries must be present and non-negative. Errors use a JSON
+object with `status`, `message`, `timestamp`, and `errors` fields; malformed
+request bodies return HTTP 400 with a safe message.
 
 ## Future improvements
 

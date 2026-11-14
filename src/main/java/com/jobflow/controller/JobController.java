@@ -6,6 +6,7 @@ import com.jobflow.api.SalaryUpdateRequest;
 import com.jobflow.api.StatusUpdateRequest;
 import com.jobflow.model.Job;
 import com.jobflow.service.JobService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +32,7 @@ public class JobController {
     }
 
     @PostMapping
-    public ResponseEntity<JobResponse> createJob(@RequestBody JobRequest request) {
+    public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest request) {
         Job job = jobService.createJob(
                 request.title(),
                 request.company(),
@@ -55,7 +56,7 @@ public class JobController {
     }
 
     @PutMapping("/{id}")
-    public JobResponse updateJob(@PathVariable int id, @RequestBody JobRequest request) {
+    public JobResponse updateJob(@PathVariable int id, @Valid @RequestBody JobRequest request) {
         Job job = jobService.updateJob(
                 id,
                 request.title(),
@@ -67,12 +68,12 @@ public class JobController {
     }
 
     @PatchMapping("/{id}/salary")
-    public JobResponse updateSalary(@PathVariable int id, @RequestBody SalaryUpdateRequest request) {
+    public JobResponse updateSalary(@PathVariable int id, @Valid @RequestBody SalaryUpdateRequest request) {
         return JobResponse.from(jobService.updateSalary(id, request.salary()));
     }
 
     @PatchMapping("/{id}/status")
-    public JobResponse updateStatus(@PathVariable int id, @RequestBody StatusUpdateRequest request) {
+    public JobResponse updateStatus(@PathVariable int id, @Valid @RequestBody StatusUpdateRequest request) {
         return JobResponse.from(jobService.updateStatus(id, request.status()));
     }
 

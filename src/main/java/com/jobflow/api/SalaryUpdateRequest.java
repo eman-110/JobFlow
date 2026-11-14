@@ -1,4 +1,11 @@
 package com.jobflow.api;
 
-public record SalaryUpdateRequest(double salary) {
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+
+public record SalaryUpdateRequest(
+        @NotNull
+        @PositiveOrZero
+        Double salary
+) {
 }

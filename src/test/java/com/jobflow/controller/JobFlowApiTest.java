@@ -51,6 +51,53 @@ class JobFlowApiTest {
     }
 
     @Test
+    void shouldReturnStructuredErrorsForInvalidJobRequests() throws Exception {
+        mockMvc.perform(post("/api/jobs")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"title":" ", "company":"Google", "location":"London", "salary":120000}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Request validation failed"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.errors.title").exists());
+
+        mockMvc.perform(post("/api/jobs")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"title":"Java Developer", "company":"Google", "location":"London"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.salary").exists());
+
+        mockMvc.perform(post("/api/jobs")
+                        .contentType(APPLICATION_JSON)
+                        .content(jobJson("Java Developer", "Google", "London", -1)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.salary").exists());
+    }
+
+    @Test
+    void shouldReturnStructuredErrorForMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/jobs")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Java Developer",
+                                  "company": "Google",
+                                  "location": "London",
+                                  "salary": "not-a-number"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Malformed or unreadable request body"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.errors").isEmpty());
+    }
+
+    @Test
     void shouldReturnExistingJobAndNotFoundForMissingJob() throws Exception {
         mockMvc.perform(get("/api/jobs/101"))
                 .andExpect(status().isOk())
@@ -58,7 +105,11 @@ class JobFlowApiTest {
                 .andExpect(jsonPath("$.title").value("Java Developer"));
 
         mockMvc.perform(get("/api/jobs/999999"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Job with ID 999999 was not found."))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.errors").isEmpty());
     }
 
     @Test
@@ -80,6 +131,35 @@ class JobFlowApiTest {
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Updated title", "Updated company", "Updated location", 110000)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldValidatePutAndPatchRequests() throws Exception {
+        int id = createJob("Validation title", "Validation company", "Validation location", 90000);
+
+        mockMvc.perform(put("/api/jobs/{id}", id)
+                        .contentType(APPLICATION_JSON)
+                        .content(jobJson("Updated title", "C".repeat(101), "London", 100000)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.company").exists());
+
+        mockMvc.perform(patch("/api/jobs/{id}/salary", id)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"salary\":-10}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.salary").exists());
+
+        mockMvc.perform(patch("/api/jobs/{id}/salary", id)
+                        .contentType(APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.salary").exists());
+
+        mockMvc.perform(patch("/api/jobs/{id}/status", id)
+                        .contentType(APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.status").exists());
     }
 
     @Test
@@ -109,7 +189,11 @@ class JobFlowApiTest {
         mockMvc.perform(patch("/api/jobs/{id}/status", id)
                         .contentType(APPLICATION_JSON)
                         .content("{\"status\":\"INTERVIEW\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Cannot change job status from SAVED to INTERVIEW."))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.errors").isEmpty());
 
         mockMvc.perform(get("/api/jobs/{id}", id))
                 .andExpect(status().isOk())
