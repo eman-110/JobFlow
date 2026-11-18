@@ -85,25 +85,26 @@ README.md
 
 ## Setup
 
-Install JDK 25 or newer and Maven, then run commands from the project root.
+Install JDK 25 or newer, then run commands from the project root. Maven Wrapper
+is included, so a global Maven installation is not required.
 
 ## Build and run
 
 ```powershell
-mvn clean package
-mvn exec:java
+.\mvnw.cmd clean package
+.\mvnw.cmd exec:java
 ```
 
 Run the unit tests with:
 
 ```powershell
-mvn test
+.\mvnw.cmd test
 ```
 
 Start the REST API with:
 
 ```powershell
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 The endpoints are available at `http://localhost:8080/hello` and
