@@ -1,33 +1,56 @@
 package com.jobflow.config;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+
+@Component
+@Validated
+@ConfigurationProperties(prefix = "app")
 public class AppConfig {
-    private final Properties properties = new Properties();
+    @NotBlank
+    private String name = "JobFlow";
 
-    public AppConfig() {
-        try (InputStream input = AppConfig.class.getClassLoader()
-                .getResourceAsStream("application.properties")) {
-            if (input == null) {
-                throw new IllegalStateException("application.properties was not found.");
-            }
-            properties.load(input);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to load application.properties.", e);
-        }
-    }
+    @NotBlank
+    private String version = "1.0.0";
+
+    @NotBlank
+    private String environment = "development";
+
+    private double minimumSalary = 100000;
 
     public String getName() {
-        return properties.getProperty("app.name");
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getVersion() {
-        return properties.getProperty("app.version");
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
+    public String getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(String environment) {
+        this.environment = environment;
     }
 
     public double getMinimumSalary() {
-        return Double.parseDouble(properties.getProperty("app.minimum.salary"));
+        return minimumSalary;
+    }
+
+    public void setMinimumSalary(double minimumSalary) {
+        this.minimumSalary = minimumSalary;
     }
 }

@@ -37,6 +37,15 @@ class JobFlowApiTest {
     }
 
     @Test
+    void shouldReturnApplicationInfo() throws Exception {
+        mockMvc.perform(get("/api/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").exists())
+                .andExpect(jsonPath("$.version").exists())
+                .andExpect(jsonPath("$.environment").exists());
+    }
+
+    @Test
     void shouldCreateJobAndReturnCreated() throws Exception {
         mockMvc.perform(post("/api/jobs")
                         .contentType(APPLICATION_JSON)

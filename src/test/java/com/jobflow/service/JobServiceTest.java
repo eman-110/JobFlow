@@ -16,6 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JobServiceTest {
 
     @Test
+    void shouldEnforceMaximumJobCapacity() {
+        JobRepository repository = new JobRepository(List.of(
+                new Job(1, "One", "Company", "London", 100000)
+        ));
+        JobService service = new JobService(repository, new EmailNotification(), 1);
+
+        assertThrows(IllegalStateException.class, () ->
+                service.createJob("Two", "Company", "London", 100000));
+    }
+
+    @Test
     void shouldAddJob() {
         JobRepository repository = new JobRepository(List.of());
         JobService service = new JobService(repository, new EmailNotification());

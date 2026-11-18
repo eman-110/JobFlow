@@ -1,5 +1,6 @@
 package com.jobflow.service;
 
+import com.jobflow.config.JobFlowProperties;
 import com.jobflow.model.Job;
 import com.jobflow.model.JobStatus;
 import com.jobflow.exception.JobNotFoundException;
@@ -8,6 +9,7 @@ import com.jobflow.repository.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -20,14 +22,41 @@ public class JobService {
 
     private final JobRepository repository;
     private final NotificationService notification;
+    private final int maxJobs;
+    private final boolean notificationsEnabled;
 
     public JobService(JobRepository repository,
                       @Qualifier("emailNotification") NotificationService notification) {
+        this(repository, notification, 100, true);
+    }
+
+    public JobService(JobRepository repository,
+                      @Qualifier("emailNotification") NotificationService notification,
+                      int maxJobs) {
+        this(repository, notification, maxJobs, true);
+    }
+
+    public JobService(JobRepository repository,
+                      @Qualifier("emailNotification") NotificationService notification,
+                      int maxJobs,
+                      boolean notificationsEnabled) {
         this.repository = repository;
         this.notification = notification;
+        this.maxJobs = maxJobs;
+        this.notificationsEnabled = notificationsEnabled;
+    }
+
+    @Autowired
+    public JobService(JobRepository repository,
+                      @Qualifier("emailNotification") NotificationService notification,
+                      JobFlowProperties properties) {
+        this(repository, notification, properties.getMaxJobs(),
+                properties.isNotificationsEnabled());
     }
 
     public void addJob(Job job) {
+        ensureCapacity();
+        logger.debug("Adding job with ID {}", job.getId());
         repository.add(job);
         logger.info("Job added: {}", job.getTitle());
     }
@@ -36,6 +65,8 @@ public class JobService {
         validateRequiredText(title, "title");
         validateRequiredText(company, "company");
         validateRequiredText(location, "location");
+        ensureCapacity();
+        logger.debug("Creating job for company {}", company);
         Job job = new Job(title, company, location, salary);
         repository.add(job);
         logger.info("Job created: {}", job.getTitle());
@@ -78,8 +109,10 @@ public class JobService {
 
     public void deleteJob(int id) {
         if (!repository.deleteById(id)) {
+            logger.warn("Delete failed: job with ID {} was not found", id);
             throw new JobNotFoundException("Job with ID " + id + " was not found.");
         }
+        logger.info("Deleted job with ID {}", id);
     }
 
     public List<Job> findJobsByCompany(String company) {
@@ -125,7 +158,11 @@ public class JobService {
 
         job.apply();
         logger.info("Job application submitted: {}", job.getTitle());
-        notification.sendNotification("Application submitted for " + job.getTitle());
+        if (notificationsEnabled) {
+            notification.sendNotification("Application submitted for " + job.getTitle());
+        } else {
+            logger.debug("Notifications disabled; skipped application notification");
+        }
     }
 
     public List<Job> searchByTitle(String keyword) {
@@ -138,6 +175,13 @@ public class JobService {
     private static void validateRequiredText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank.");
+        }
+    }
+
+    private void ensureCapacity() {
+        if (repository.findAll().size() >= maxJobs) {
+            logger.warn("Job capacity reached: maximum is {}", maxJobs);
+            throw new IllegalStateException("Maximum job capacity of " + maxJobs + " reached.");
         }
     }
 }
