@@ -1,0 +1,36 @@
+2026-11-18T23:12:23.461+05:00  INFO 15816 --- [JobFlow] [main] c.j.config.JobFlowConfigurationTest      : Starting JobFlowConfigurationTest using Java 25.0.4.1 with PID 15816 (started by Eman in E:\GitHub\JobFlow)
+2026-11-18T23:12:23.500+05:00 DEBUG 15816 --- [JobFlow] [main] c.j.config.JobFlowConfigurationTest      : Running with Spring Boot v4.1.2, Spring v7.0.10
+2026-11-18T23:12:23.502+05:00  INFO 15816 --- [JobFlow] [main] c.j.config.JobFlowConfigurationTest      : The following 1 profile is active: "dev"
+2026-11-18T23:12:25.253+05:00 DEBUG 15816 --- [JobFlow] [main] c.jobflow.config.DevelopmentComponent    : Development-only JobFlow component initialized
+2026-11-18T23:12:26.056+05:00  INFO 15816 --- [JobFlow] [main] c.j.config.JobFlowConfigurationTest      : Started JobFlowConfigurationTest in 3.209 seconds (process running for 6.633)
+2026-11-18T23:12:28.500+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.controller.JobFlowApiTest    : Starting JobFlowApiTest using Java 25.0.4.1 with PID 15816 (started by Eman in E:\GitHub\JobFlow)
+2026-11-18T23:12:28.501+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.controller.JobFlowApiTest    : Running with Spring Boot v4.1.2, Spring v7.0.10
+2026-11-18T23:12:28.502+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.controller.JobFlowApiTest    : The following 1 profile is active: "dev"
+2026-11-18T23:12:28.939+05:00 DEBUG 15816 --- [JobFlow] [main] c.jobflow.config.DevelopmentComponent    : Development-only JobFlow component initialized
+2026-11-18T23:12:29.182+05:00  INFO 15816 --- [JobFlow] [main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-11-18T23:12:29.183+05:00  INFO 15816 --- [JobFlow] [main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-11-18T23:12:29.185+05:00  INFO 15816 --- [JobFlow] [main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 2 ms
+2026-11-18T23:12:29.206+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.controller.JobFlowApiTest    : Started JobFlowApiTest in 0.793 seconds (process running for 9.783)
+2026-11-18T23:12:29.516+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Original company
+2026-11-18T23:12:29.516+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Original title
+2026-11-18T23:12:29.820+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Salary patch company
+2026-11-18T23:12:29.821+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Salary patch title
+2026-11-18T23:12:29.856+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Validation company
+2026-11-18T23:12:29.857+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Validation title
+2026-11-18T23:12:29.904+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Google
+2026-11-18T23:12:29.904+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Java Developer
+2026-11-18T23:12:29.923+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Delete company
+2026-11-18T23:12:29.924+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Delete title
+2026-11-18T23:12:29.928+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Deleted job with ID 108
+2026-11-18T23:12:29.931+05:00  WARN 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Delete failed: job with ID 108 was not found
+2026-11-18T23:12:29.940+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Creating job for company Status company
+2026-11-18T23:12:29.941+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job created: Status title
+2026-11-18T23:12:30.009+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Adding job with ID 110
+2026-11-18T23:12:30.010+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job added: Java Developer
+2026-11-18T23:12:30.023+05:00  WARN 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job capacity reached: maximum is 1
+2026-11-18T23:12:30.031+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Adding job with ID 111
+2026-11-18T23:12:30.032+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job added: Senior Engineer
+2026-11-18T23:12:30.033+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Adding job with ID 112
+2026-11-18T23:12:30.033+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job added: Junior Engineer
+2026-11-18T23:12:30.034+05:00 DEBUG 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Adding job with ID 113
+2026-11-18T23:12:30.036+05:00  INFO 15816 --- [JobFlow] [main] com.jobflow.service.JobService           : Job added: Engineer
