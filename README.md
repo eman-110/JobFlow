@@ -12,9 +12,12 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Protect repository data with unmodifiable list copies.
 - Serve REST endpoints for job listing CRUD, salary updates, application status,
   search, and filtering with Spring Boot.
+- Report application name, version, and active environment from `/api/info`.
 - Validate API request bodies and return timestamped, structured JSON errors.
 - Use a Spring-managed job repository and service for listing, ID lookup, company
   search, and minimum-salary filtering.
+- Configure application properties and development, test, and production
+  profiles, including capacity and notification settings.
 
 ## Data structures and algorithms
 
@@ -47,8 +50,9 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 - Spring Boot 4.1.2
 - Spring Web MVC
 - Jakarta Bean Validation
-- SLF4J with the SLF4J Simple logging implementation
-- JUnit Jupiter
+- SLF4J with Logback
+- JUnit Jupiter, Mockito, and Spring MVC Test
+- JaCoCo
 
 ## Folder structure
 
@@ -57,11 +61,11 @@ src/
   main/
     java/com/jobflow/
       JobFlowApplication
-      api/            JobRequest, JobResponse, SalaryUpdateRequest,
-                      StatusUpdateRequest
+      api/            ApiErrorResponse, ApplicationInfo, JobRequest,
+                      JobResponse, SalaryUpdateRequest, StatusUpdateRequest
       app/            Main
-      config/         AppConfig
-      controller/    HelloController, JobController
+      config/         AppConfig, JobFlowProperties
+      controller/     ApplicationInfoController, HelloController, JobController
       exception/      ApiExceptionHandler, JobNotFoundException
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
@@ -73,14 +77,19 @@ src/
                       SearchingAlgorithms, SinglyLinkedList,
                       SortingAlgorithms, ValidParentheses
     resources/
-      application.properties
+      application.properties, application-dev.properties,
+      application-test.properties, application-prod.properties
   test/
     java/com/jobflow/
-      algorithm/      ArrayAlgorithmsTest, DataStructuresTest,
-                      SearchingSortingHashingTest
-      service/        JobServiceTest
+      algorithm/      Existing algorithm tests
+      config/         JobFlowConfigurationTest, TestProfileTest
+      controller/     JobFlowApiTest, JobControllerTest
+      model/          JobTest
+      repository/     JobRepositoryTest
+      service/        JobServiceTest, JobServiceMockitoTest
 pom.xml
 README.md
+.github/workflows/ci.yml
 ```
 
 ## Setup
@@ -95,20 +104,46 @@ is included, so a global Maven installation is not required.
 .\mvnw.cmd exec:java
 ```
 
-Run the unit tests with:
+## Testing and coverage
+
+Run the complete test suite:
 
 ```powershell
-.\mvnw.cmd test
+.\mvnw.cmd clean test
 ```
 
-Start the REST API with:
+Tests cover service behavior with Mockito, MVC behavior with MockMvc, structured
+400/404/409 responses, request validation, profile configuration, and salary
+boundaries. The integration test context is reset after every test method to
+prevent in-memory repository data from leaking between tests.
+
+Generate and review the JaCoCo coverage report:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd clean verify
 ```
 
-The endpoints are available at `http://localhost:8080/hello` and
-`http://localhost:8080/api/jobs`. The job API supports:
+Open `target/site/jacoco/index.html` to review line and branch coverage.
+
+Run with a specific profile, for example:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=test"
+```
+
+The test profile disables notifications and sets the maximum job capacity to
+four. The development profile is the default; production and test settings are
+defined in their respective `application-<profile>.properties` files.
+The `JOBFLOW_PROFILE`, `JOBFLOW_APP_NAME`, `JOBFLOW_APP_VERSION`,
+`JOBFLOW_ENVIRONMENT`, `JOBFLOW_NOTIFICATIONS_ENABLED`, `JOBFLOW_MAX_JOBS`, and
+`JOBFLOW_MINIMUM_SALARY` environment variables override the default application
+configuration.
+
+## REST API
+
+The endpoints are available at `http://localhost:8080/hello`,
+`http://localhost:8080/api/info`, and `http://localhost:8080/api/jobs`. The job
+API supports:
 
 - `POST /api/jobs` with `title`, `company`, `location`, and `salary` to create
   a listing (returns `201 Created`).
@@ -127,9 +162,14 @@ characters, and salaries must be present and non-negative. Errors use a JSON
 object with `status`, `message`, `timestamp`, and `errors` fields; malformed
 request bodies return HTTP 400 with a safe message.
 
+Application logging uses Logback and can be configured through the profile
+properties. The development profile writes `logs/jobflow.log`; generated logs
+and Maven outputs are ignored by Git.
+
+GitHub Actions runs `./mvnw clean verify` on pushes and pull requests targeting
+`main`.
+
 ## Future improvements
 
 - Persist job listings in a database.
-- Add validation and configuration defaults.
-- Expand unit and integration test coverage.
 - Add a user interface and job-seeker-specific application history.
