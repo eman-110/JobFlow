@@ -36,4 +36,18 @@ public class JobRepository {
                 .filter(job -> job.getId() == id)
                 .findFirst();
     }
+
+    public boolean update(Job updatedJob) {
+        for (int index = 0; index < jobs.size(); index++) {
+            if (jobs.get(index).getId() == updatedJob.getId()) {
+                jobs.set(index, updatedJob);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean deleteById(int id) {
+        return jobs.removeIf(job -> job.getId() == id);
+    }
 }

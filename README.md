@@ -13,6 +13,8 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Serve sample REST endpoints for a greeting and job listings with Spring Boot.
 - Use a Spring-managed job repository and service for listing, ID lookup, company
   search, and minimum-salary filtering.
+- Create, update, and delete jobs through validated REST endpoints, with
+  not-found and capacity errors returned as HTTP 404 and 409.
 
 ## Data structures and algorithms
 
@@ -44,8 +46,9 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 - Apache Maven
 - Spring Boot 4.1.2
 - Spring Web MVC
-- SLF4J with the SLF4J Simple logging implementation
-- JUnit Jupiter
+- Jakarta Bean Validation
+- JUnit Jupiter, Mockito, and Spring MVC Test
+- SLF4J with Spring Boot's default Logback implementation
 
 ## Folder structure
 
@@ -54,11 +57,12 @@ src/
   main/
     java/com/jobflow/
       JobFlowApplication
-      api/            JobResponse
       app/            Main
       config/         AppConfig
-      controller/    HelloController, JobController
-      exception/      JobNotFoundException
+      controller/     HelloController, JobController
+      exception/      JobNotFoundException, JobCapacityExceededException,
+                      JobExceptionHandler
+      api/            JobRequest, JobResponse
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
                       SmsNotification, WhatsAppNotification
@@ -69,14 +73,18 @@ src/
                       SearchingAlgorithms, SinglyLinkedList,
                       SortingAlgorithms, ValidParentheses
     resources/
-      application.properties
+      application.properties, application-test.properties
   test/
     java/com/jobflow/
-      algorithm/      ArrayAlgorithmsTest, DataStructuresTest,
-                      SearchingSortingHashingTest
-      service/        JobServiceTest
+      algorithm/      Existing algorithm tests
+      config/         JobFlowConfigurationTest, TestProfileTest
+      controller/     JobFlowApiTest, JobControllerTest
+      model/          JobTest
+      repository/     JobRepositoryTest
+      service/        JobServiceTest, JobServiceMockitoTest
 pom.xml
 README.md
+.github/workflows/ci.yml
 ```
 
 ## Setup
@@ -90,13 +98,37 @@ mvn clean package
 mvn exec:java
 ```
 
-Run the unit tests with:
+## Testing and coverage
+
+Run the complete test suite:
 
 ```powershell
-mvn test
+mvn clean test
 ```
 
-Start the REST API with:
+The tests cover service behavior with Mockito, MVC behavior with MockMvc, request
+validation, repository isolation, salary boundaries, and the `test` profile.
+The test profile sets a four-job capacity and disables notifications.
+
+Generate and review the JaCoCo coverage report:
+
+```powershell
+mvn clean verify
+```
+
+Open `target/site/jacoco/index.html` to review line and branch coverage.
+
+Spring Boot uses Logback by default for application logging. Log levels can be
+configured in `application.properties`; notification implementations currently
+print their simulated messages to the console.
+
+Run the API with the test profile using:
+
+```powershell
+mvn -Dspring-boot.run.profiles=test spring-boot:run
+```
+
+## Run the REST API
 
 ```powershell
 mvn spring-boot:run
@@ -107,9 +139,11 @@ The sample endpoints are available at `http://localhost:8080/hello`,
 `http://localhost:8080/api/jobs/search?company=Tech%20Solutions`, and
 `http://localhost:8080/api/jobs/high-paying?minimumSalary=150000`.
 
+The GitHub Actions workflow runs `mvn clean verify` on pushes and pull requests
+targeting `main`.
+
 ## Future improvements
 
 - Persist job listings in a database.
-- Add validation and configuration defaults.
 - Expand unit and integration test coverage.
 - Add a user interface and job-seeker-specific application history.

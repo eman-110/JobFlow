@@ -1,12 +1,16 @@
 package com.jobflow.service;
 
+import com.jobflow.exception.JobCapacityExceededException;
+import com.jobflow.exception.JobNotFoundException;
 import com.jobflow.model.Job;
 import com.jobflow.model.JobStatus;
 import com.jobflow.notification.NotificationService;
 import com.jobflow.repository.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -19,16 +23,47 @@ public class JobService {
 
     private final JobRepository repository;
     private final NotificationService notification;
+    private final int maximumJobCapacity;
+    private final boolean notificationsEnabled;
 
     public JobService(JobRepository repository,
                       @Qualifier("emailNotification") NotificationService notification) {
+        this(repository, notification, 100, true);
+    }
+
+    @Autowired
+    public JobService(JobRepository repository,
+                      @Qualifier("emailNotification") NotificationService notification,
+                      @Value("${jobflow.jobs.max-capacity:100}") int maximumJobCapacity,
+                      @Value("${jobflow.notifications.enabled:true}") boolean notificationsEnabled) {
         this.repository = repository;
         this.notification = notification;
+        this.maximumJobCapacity = maximumJobCapacity;
+        this.notificationsEnabled = notificationsEnabled;
     }
 
     public void addJob(Job job) {
+        if (repository.findAll().size() >= maximumJobCapacity) {
+            throw new JobCapacityExceededException("Maximum job capacity has been reached.");
+        }
         repository.add(job);
         logger.info("Job added: {}", job.getTitle());
+    }
+
+    public Job updateJob(int id, Job job) {
+        if (id != job.getId()) {
+            throw new IllegalArgumentException("The job ID must match the request ID.");
+        }
+        if (!repository.update(job)) {
+            throw new JobNotFoundException("Job not found: " + id);
+        }
+        return job;
+    }
+
+    public void deleteJob(int id) {
+        if (!repository.deleteById(id)) {
+            throw new JobNotFoundException("Job not found: " + id);
+        }
     }
 
     public List<Job> getAllJobs() {
@@ -82,7 +117,9 @@ public class JobService {
 
         job.apply();
         logger.info("Job application submitted: {}", job.getTitle());
-        notification.sendNotification("Application submitted for " + job.getTitle());
+        if (notificationsEnabled) {
+            notification.sendNotification("Application submitted for " + job.getTitle());
+        }
     }
 
     public List<Job> searchByTitle(String keyword) {
