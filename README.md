@@ -169,7 +169,28 @@ and Maven outputs are ignored by Git.
 GitHub Actions runs `./mvnw clean verify` on pushes and pull requests targeting
 `main`.
 
+## Relational database practice
+
+Standalone MySQL practice scripts are in [database/](./database/). They define
+the four-table schema, insert fictional sample records, and provide the 20
+assignment queries plus three bonus queries. The schema enforces non-negative
+salaries and prevents duplicate applications by the same user for a job.
+
+With MySQL 8.0.16 or newer installed, open a MySQL client from the repository
+root and run the scripts in order:
+
+```text
+SOURCE database/schema.sql;
+SOURCE database/seed.sql;
+SOURCE database/queries.sql;
+```
+
+The schema creates and selects the `jobflow` database. `queries.sql` includes
+example updates and a delete, so run it once after seeding. These scripts are
+for database practice only and do not connect MySQL to Spring Boot or change
+the existing Java implementation.
+
 ## Future improvements
 
-- Persist job listings in a database.
+- Connect the standalone MySQL practice schema to Spring Boot in a later lesson.
 - Add a user interface and job-seeker-specific application history.
