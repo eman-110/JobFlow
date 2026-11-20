@@ -18,6 +18,8 @@ JobFlow is a Java application for managing and exploring job listings. It demons
   search, and minimum-salary filtering.
 - Configure application properties and development, test, and production
   profiles, including capacity and notification settings.
+- Define standalone Jakarta Persistence entities and JPQL practice queries
+  without connecting a database to Spring Boot.
 
 ## Data structures and algorithms
 
@@ -48,6 +50,7 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 - Java 25 (LTS)
 - Apache Maven
 - Spring Boot 4.1.2
+- Jakarta Persistence
 - Spring Web MVC
 - Jakarta Bean Validation
 - SLF4J with Logback
@@ -76,6 +79,9 @@ src/
                       DoublyLinkedList, HashingAlgorithms,
                       SearchingAlgorithms, SinglyLinkedList,
                       SortingAlgorithms, ValidParentheses
+      persistence/entity/
+                        CompanyEntity, JobEntity, UserEntity,
+                        ApplicationEntity, JobEntityMapper
     resources/
       application.properties, application-dev.properties,
       application-test.properties, application-prod.properties
@@ -87,6 +93,12 @@ src/
       model/          JobTest
       repository/     JobRepositoryTest
       service/        JobServiceTest, JobServiceMockitoTest
+      persistence/entity/
+                        CompanyEntityTest, JobEntityTest,
+                        UserEntityTest, ApplicationEntityTest,
+                        JobEntityMapperTest
+database/
+  schema.sql, seed.sql, queries.sql, jpql_queries.md
 pom.xml
 README.md
 .github/workflows/ci.yml
@@ -187,8 +199,15 @@ SOURCE database/queries.sql;
 
 The schema creates and selects the `jobflow` database. `queries.sql` includes
 example updates and a delete, so run it once after seeding. These scripts are
-for database practice only and do not connect MySQL to Spring Boot or change
-the existing Java implementation.
+for database practice only and do not connect MySQL to Spring Boot.
+
+The Jakarta Persistence entity layer is in
+`src/main/java/com/jobflow/persistence/entity/`. Entities map to the standalone
+schema and include pre-persist timestamps, explicit enum string mappings, and
+the application composite unique constraint. `JobEntityMapper` takes a
+company ID or company name resolved by its caller; it does not perform a
+database lookup. JPQL exercises are in `database/jpql_queries.md`. No datasource
+is configured, and no persistence tests connect to a database.
 
 ## Future improvements
 

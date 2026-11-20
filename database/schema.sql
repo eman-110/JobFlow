@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_jobs PRIMARY KEY (id),
     CONSTRAINT chk_jobs_salary_nonnegative CHECK (salary >= 0),
+    CONSTRAINT chk_jobs_status
+        CHECK (status IN ('SAVED', 'APPLIED', 'INTERVIEW', 'REJECTED')),
     CONSTRAINT fk_jobs_company
         FOREIGN KEY (company_id) REFERENCES companies (id)
 ) ENGINE = InnoDB;
@@ -43,6 +45,8 @@ CREATE TABLE IF NOT EXISTS applications (
     applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_applications PRIMARY KEY (id),
     CONSTRAINT uq_applications_user_job UNIQUE (user_id, job_id),
+    CONSTRAINT chk_applications_status
+        CHECK (status IN ('SAVED', 'APPLIED', 'INTERVIEW', 'REJECTED')),
     CONSTRAINT fk_applications_user
         FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT fk_applications_job
