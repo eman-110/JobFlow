@@ -46,6 +46,7 @@ class UserEntityTest {
         Table table = UserEntity.class.getAnnotation(Table.class);
         Column name = UserEntity.class.getDeclaredField("name").getAnnotation(Column.class);
         Column email = UserEntity.class.getDeclaredField("email").getAnnotation(Column.class);
+        Column createdAt = UserEntity.class.getDeclaredField("createdAt").getAnnotation(Column.class);
 
         assertEquals("users", table.name());
         assertEquals(100, name.length());
@@ -53,5 +54,6 @@ class UserEntityTest {
         assertEquals(255, email.length());
         assertEquals(false, email.nullable());
         assertEquals(true, email.unique());
+        assertEquals(false, createdAt.updatable());
     }
 }

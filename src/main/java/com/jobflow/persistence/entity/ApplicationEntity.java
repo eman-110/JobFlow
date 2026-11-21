@@ -37,7 +37,7 @@ public class ApplicationEntity {
     @Column(nullable = false, length = 20)
     private JobStatus status = JobStatus.APPLIED;
 
-    @Column(name = "applied_at", nullable = false)
+    @Column(name = "applied_at", nullable = false, updatable = false)
     private LocalDateTime appliedAt;
 
     protected ApplicationEntity() {

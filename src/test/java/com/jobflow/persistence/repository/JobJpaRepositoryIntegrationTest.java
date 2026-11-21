@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("mysql")
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class JobJpaRepositoryIntegrationTest {
     @Container
     private static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -177,6 +177,7 @@ class JobJpaRepositoryIntegrationTest {
     @Test
     void storeUsesGeneratedJobIdsAndReusesCompaniesByName() {
         saveJob("Existing Engineer", "90000.00");
+        companies.saveAndFlush(new CompanyEntity("Shared Company", null, "US"));
         Job first = new Job("First New Engineer", "Shared Company", "Remote", 100000);
         Job second = new Job("Second New Engineer", "Shared Company", "Remote", 110000);
 
@@ -187,6 +188,8 @@ class JobJpaRepositoryIntegrationTest {
         assertTrue(jobs.findById(first.getId()).isPresent());
         assertTrue(second.getId() > first.getId());
         assertTrue(jobs.findById(second.getId()).isPresent());
+        assertEquals("Shared Company",
+                companies.findByName("shared company").orElseThrow().getName());
         assertEquals(1, companies.findAll().stream()
                 .filter(company -> company.getName().equals("Shared Company"))
                 .count());

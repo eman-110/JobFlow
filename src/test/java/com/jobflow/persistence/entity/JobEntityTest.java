@@ -28,12 +28,19 @@ class JobEntityTest {
     }
 
     @Test
-    void shouldSupportTheLessonConstructorAndZeroSalary() {
-        JobEntity job = new JobEntity(3, "Java Developer", "Berlin", BigDecimal.ZERO);
+    void shouldSupportTheFullConstructorAndZeroSalary() {
+        JobEntity job = new JobEntity(3, 42, "Java Developer", "Berlin", BigDecimal.ZERO);
 
         assertEquals(3, job.getId());
+        assertEquals(42, job.getCompanyId());
         assertEquals(BigDecimal.ZERO, job.getSalary());
         assertEquals(JobStatus.SAVED, job.getStatus());
+    }
+
+    @Test
+    void shouldRejectMissingCompanyId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new JobEntity(null, null, "Java Developer", "Berlin", BigDecimal.ONE));
     }
 
     @Test
@@ -65,10 +72,12 @@ class JobEntityTest {
         Enumerated statusMapping = JobEntity.class.getDeclaredField("status")
                 .getAnnotation(Enumerated.class);
         Column salary = JobEntity.class.getDeclaredField("salary").getAnnotation(Column.class);
+        Column createdAt = JobEntity.class.getDeclaredField("createdAt").getAnnotation(Column.class);
 
         assertEquals("jobs", table.name());
         assertEquals(jakarta.persistence.EnumType.STRING, statusMapping.value());
         assertEquals(12, salary.precision());
         assertEquals(2, salary.scale());
+        assertEquals(false, createdAt.updatable());
     }
 }

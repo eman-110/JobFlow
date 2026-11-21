@@ -37,7 +37,7 @@ public class JobEntity {
     @Column(nullable = false, length = 20)
     private JobStatus status = JobStatus.SAVED;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     protected JobEntity() {
@@ -46,13 +46,6 @@ public class JobEntity {
     public JobEntity(Integer id, Integer companyId, String title, String location, BigDecimal salary) {
         this.id = id;
         setCompanyId(companyId);
-        setTitle(title);
-        setLocation(location);
-        setSalary(salary);
-    }
-
-    public JobEntity(Integer id, String title, String location, BigDecimal salary) {
-        this.id = id;
         setTitle(title);
         setLocation(location);
         setSalary(salary);

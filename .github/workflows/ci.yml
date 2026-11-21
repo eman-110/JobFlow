@@ -22,5 +22,29 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Verify Docker is available
+        run: docker info
+
       - name: Build and test
-        run: bash ./mvnw clean verify
+        run: bash ./mvnw --batch-mode clean verify
+
+      - name: Require all MySQL integration tests to run
+        run: |
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          report = Path("target/surefire-reports/TEST-com.jobflow.persistence.repository.JobJpaRepositoryIntegrationTest.xml")
+          if not report.is_file():
+              sys.exit(f"Missing integration-test report: {report}")
+
+          suite = ET.parse(report).getroot()
+          counts = {
+              name: int(suite.attrib.get(name, "0"))
+              for name in ("tests", "skipped", "failures", "errors")
+          }
+          print(f"MySQL integration tests: {counts}")
+          if counts != {"tests": 14, "skipped": 0, "failures": 0, "errors": 0}:
+              sys.exit("Expected all 14 MySQL integration tests to pass without skips.")
+          PY

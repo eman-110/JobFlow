@@ -134,8 +134,9 @@ Run the complete test suite:
 Tests cover service behavior with Mockito, MVC behavior with MockMvc, structured
 400/404/409 responses, request validation, profile configuration, and salary
 boundaries. The API tests use the in-memory repository and do not require MySQL.
-The MySQL repository integration tests use Testcontainers and are skipped
-automatically when Docker is unavailable.
+The MySQL repository integration tests use Testcontainers and require Docker;
+CI verifies Docker availability and fails if any of the 14 integration tests
+are skipped.
 
 Generate and review the JaCoCo coverage report:
 
@@ -192,9 +193,11 @@ $env:JOBFLOW_PROFILE = "mysql"
 By default the application connects to
 `jdbc:mysql://localhost:3306/jobflow_dev`. Set `DB_URL` to override the JDBC
 URL. MySQL Connector/J is included at runtime.
-Company names are resolved case-insensitively; a unique database constraint
-prevents duplicate company records. Since the job API only supplies a company
-name, companies created through it use `Unspecified` as their country.
+Company names are resolved using the database's case-insensitive unique index.
+The MySQL profile rejects names that are not already present in `companies`;
+it never silently creates a company or assigns a placeholder country. Create
+company records through the persistence repository or insert them explicitly
+before posting a job.
 
 The paginated endpoint is `GET /api/jobs/page?page=0&size=20&sortBy=salary&direction=desc`.
 Page numbers are zero-based, sizes are limited to 1–100, and sorting supports

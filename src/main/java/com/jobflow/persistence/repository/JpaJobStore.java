@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 @Profile("mysql")
 @Transactional
 public class JpaJobStore implements JobStore {
-    private static final String UNSPECIFIED_COUNTRY = "Unspecified";
-
     private final JobJpaRepository jobs;
     private final CompanyJpaRepository companies;
 
@@ -55,21 +55,25 @@ public class JpaJobStore implements JobStore {
     @Override
     @Transactional(readOnly = true)
     public List<Job> findAll() {
-        return jobs.findAll().stream().map(this::toDomain).toList();
+        return toDomain(jobs.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<Job> findPage(Pageable pageable) {
         Page<JobEntity> result = jobs.findAll(pageable);
-        List<Job> content = result.getContent().stream().map(this::toDomain).toList();
+        List<Job> content = toDomain(result.getContent());
         return new PageImpl<>(content, pageable, result.getTotalElements());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<Job> findById(int id) {
-        return jobs.findById(id).map(this::toDomain);
+        return jobs.findById(id).map(entity -> {
+            CompanyEntity company = companies.findById(entity.getCompanyId())
+                    .orElseThrow(() -> missingCompany(entity));
+            return JobEntityMapper.toDomain(entity, company.getName());
+        });
     }
 
     @Override
@@ -82,15 +86,35 @@ public class JpaJobStore implements JobStore {
     }
 
     private CompanyEntity resolveCompany(String name) {
-        return companies.findByNameIgnoreCase(name)
-                .orElseGet(() -> companies.saveAndFlush(
-                        new CompanyEntity(name, null, UNSPECIFIED_COUNTRY)));
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Company name must not be blank.");
+        }
+        return companies.findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Company '" + name + "' does not exist."));
     }
 
-    private Job toDomain(JobEntity entity) {
-        CompanyEntity company = companies.findById(entity.getCompanyId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Company " + entity.getCompanyId() + " for job " + entity.getId() + " was not found."));
-        return JobEntityMapper.toDomain(entity, company.getName());
+    private List<Job> toDomain(List<JobEntity> entities) {
+        if (entities.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> companyIds = entities.stream()
+                .map(JobEntity::getCompanyId)
+                .distinct()
+                .toList();
+        Map<Integer, CompanyEntity> companiesById = companies.findAllById(companyIds).stream()
+                .collect(Collectors.toMap(CompanyEntity::getId, company -> company));
+        return entities.stream()
+                .map(entity -> JobEntityMapper.toDomain(
+                        entity,
+                        Optional.ofNullable(companiesById.get(entity.getCompanyId()))
+                                .map(CompanyEntity::getName)
+                                .orElseThrow(() -> missingCompany(entity))))
+                .toList();
+    }
+
+    private static IllegalStateException missingCompany(JobEntity entity) {
+        return new IllegalStateException(
+                "Company " + entity.getCompanyId() + " for job " + entity.getId() + " was not found.");
     }
 }

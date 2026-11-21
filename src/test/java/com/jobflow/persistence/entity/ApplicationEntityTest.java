@@ -1,6 +1,7 @@
 package com.jobflow.persistence.entity;
 
 import com.jobflow.model.JobStatus;
+import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.junit.jupiter.api.Test;
@@ -44,8 +45,10 @@ class ApplicationEntityTest {
     }
 
     @Test
-    void shouldMapCompositeUniqueConstraint() {
+    void shouldMapCompositeUniqueConstraintAndNonUpdatableAppliedAt() throws Exception {
         Table table = ApplicationEntity.class.getAnnotation(Table.class);
+        Column appliedAt = ApplicationEntity.class.getDeclaredField("appliedAt")
+                .getAnnotation(Column.class);
         UniqueConstraint unique = Arrays.stream(table.uniqueConstraints())
                 .filter(constraint -> constraint.name().equals("uq_applications_user_job"))
                 .findFirst()
@@ -53,5 +56,6 @@ class ApplicationEntityTest {
 
         assertEquals("applications", table.name());
         assertEquals(Arrays.asList("user_id", "job_id"), Arrays.asList(unique.columnNames()));
+        assertEquals(false, appliedAt.updatable());
     }
 }
