@@ -8,6 +8,7 @@ import com.jobflow.model.Job;
 import com.jobflow.service.JobService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -48,6 +49,16 @@ public class JobController {
         return jobService.getAllJobs().stream()
                 .map(JobResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/page")
+    public Page<JobResponse> getJobsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
+        return jobService.getJobsPage(page, size, sortBy, direction)
+                .map(JobResponse::from);
     }
 
     @GetMapping("/{id}")

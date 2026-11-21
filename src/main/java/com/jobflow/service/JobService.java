@@ -5,7 +5,11 @@ import com.jobflow.model.Job;
 import com.jobflow.model.JobStatus;
 import com.jobflow.exception.JobNotFoundException;
 import com.jobflow.notification.NotificationService;
-import com.jobflow.repository.JobRepository;
+import com.jobflow.repository.JobStore;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,23 +24,23 @@ import java.util.Optional;
 public class JobService {
     private static final Logger logger = LoggerFactory.getLogger(JobService.class);
 
-    private final JobRepository repository;
+    private final JobStore repository;
     private final NotificationService notification;
     private final int maxJobs;
     private final boolean notificationsEnabled;
 
-    public JobService(JobRepository repository,
+    public JobService(JobStore repository,
                       @Qualifier("emailNotification") NotificationService notification) {
         this(repository, notification, 100, true);
     }
 
-    public JobService(JobRepository repository,
+    public JobService(JobStore repository,
                       @Qualifier("emailNotification") NotificationService notification,
                       int maxJobs) {
         this(repository, notification, maxJobs, true);
     }
 
-    public JobService(JobRepository repository,
+    public JobService(JobStore repository,
                       @Qualifier("emailNotification") NotificationService notification,
                       int maxJobs,
                       boolean notificationsEnabled) {
@@ -47,7 +51,7 @@ public class JobService {
     }
 
     @Autowired
-    public JobService(JobRepository repository,
+    public JobService(JobStore repository,
                       @Qualifier("emailNotification") NotificationService notification,
                       JobFlowProperties properties) {
         this(repository, notification, properties.getMaxJobs(),
@@ -77,6 +81,18 @@ public class JobService {
         return repository.findAll();
     }
 
+    public Page<Job> getJobsPage(int page, int size, String sortBy, String direction) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("Page must be non-negative and size must be between 1 and 100.");
+        }
+        if (!List.of("id", "title", "location", "salary").contains(sortBy)) {
+            throw new IllegalArgumentException("Unsupported job sort property: " + sortBy);
+        }
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+        return repository.findPage(pageable);
+    }
+
     public Optional<Job> findJobById(int id) {
         return repository.findById(id);
     }
@@ -92,18 +108,21 @@ public class JobService {
         validateRequiredText(location, "location");
         Job job = getJobById(id);
         job.updateDetails(title, company, location, salary);
+        repository.save(job);
         return job;
     }
 
     public Job updateSalary(int id, double salary) {
         Job job = getJobById(id);
         job.updateSalary(salary);
+        repository.save(job);
         return job;
     }
 
     public Job updateStatus(int id, JobStatus status) {
         Job job = getJobById(id);
         job.updateStatus(status);
+        repository.save(job);
         return job;
     }
 

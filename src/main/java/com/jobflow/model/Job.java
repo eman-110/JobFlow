@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Job {
     private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
 
-    private final int id;
+    private int id;
     private String title;
     private String company;
     private String location;
@@ -31,6 +31,13 @@ public class Job {
 
     public int getId() {
         return id;
+    }
+
+    public void assignPersistentId(int id) {
+        if (id <= 0) {
+            throw new IllegalArgumentException("Job ID must be positive.");
+        }
+        this.id = id;
     }
 
     public String getTitle() {

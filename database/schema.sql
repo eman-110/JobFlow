@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS companies (
     name VARCHAR(100) NOT NULL,
     website VARCHAR(255),
     country VARCHAR(100) NOT NULL,
-    CONSTRAINT pk_companies PRIMARY KEY (id)
+    CONSTRAINT pk_companies PRIMARY KEY (id),
+    CONSTRAINT uq_companies_name UNIQUE (name)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS users (
