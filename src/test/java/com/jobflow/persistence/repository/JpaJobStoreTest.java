@@ -57,9 +57,14 @@ class JpaJobStoreTest {
         CompanyEntity company = new CompanyEntity(12, "Known Co", null, "US");
         when(companies.findByName("Known Co")).thenReturn(Optional.of(company));
         when(jobs.saveAndFlush(any(JobEntity.class))).thenAnswer(invocation -> {
-            JobEntity entity = invocation.getArgument(0);
-            entity.setId(73);
-            return entity;
+            JobEntity input = invocation.getArgument(0);
+            return new JobEntity(
+                    73,
+                    input.getCompanyId(),
+                    input.getTitle(),
+                    input.getLocation(),
+                    input.getSalary()
+            );
         });
         Job job = new Job("Developer", "Known Co", "Remote", 100000);
 

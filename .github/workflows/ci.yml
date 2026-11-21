@@ -25,6 +25,9 @@ jobs:
       - name: Verify Docker is available
         run: docker info
 
+      - name: Show resolved Testcontainers Docker client versions
+        run: bash ./mvnw --batch-mode dependency:tree -Dscope=test '-Dincludes=org.testcontainers:*,com.github.docker-java:*'
+
       - name: Build and test
         run: bash ./mvnw --batch-mode clean verify
 
