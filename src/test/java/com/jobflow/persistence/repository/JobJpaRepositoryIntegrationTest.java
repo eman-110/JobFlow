@@ -253,10 +253,12 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    @Transactional
     void companyAndJobRelationshipsAreBidirectionalAfterReload() {
         CompanyEntity company = saveCompany();
         JobEntity saved = saveJob(company, "Relationship Engineer", "125000.00");
-        entityManagerFactory.getCache().evictAll();
+        entityManager.flush();
+        entityManager.clear();
 
         CompanyEntity reloadedCompany = companies.findById(company.getId()).orElseThrow();
         JobEntity reloadedJob = jobs.findByIdWithCompany(saved.getId()).orElseThrow();
@@ -279,11 +281,13 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    @Transactional
     void userAndApplicationRelationshipsAreBidirectionalAfterReload() {
         UserEntity user = saveUser();
         JobEntity job = saveJob("User Application Engineer", "125000.00");
         ApplicationEntity saved = applicationService.apply(user.getId(), job.getId());
-        entityManagerFactory.getCache().evictAll();
+        entityManager.flush();
+        entityManager.clear();
 
         UserEntity reloadedUser = users.findById(user.getId()).orElseThrow();
         ApplicationEntity reloadedApplication = applications.findById(saved.getId()).orElseThrow();
@@ -310,11 +314,13 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    @Transactional
     void jobAndApplicationRelationshipsAreBidirectionalAfterReload() {
         UserEntity user = saveUser();
         JobEntity job = saveJob("Job Application Engineer", "140000.00");
         ApplicationEntity saved = applicationService.apply(user.getId(), job.getId());
-        entityManagerFactory.getCache().evictAll();
+        entityManager.flush();
+        entityManager.clear();
 
         JobEntity reloadedJob = jobs.findById(job.getId()).orElseThrow();
         ApplicationEntity reloadedApplication = applications.findById(saved.getId()).orElseThrow();
@@ -325,11 +331,13 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    @Transactional
     void applicationReferencesThePersistedJobEntity() {
         UserEntity user = saveUser();
         JobEntity job = saveJob("Persisted Job Reference Engineer", "145000.00");
         ApplicationEntity saved = applicationService.apply(user.getId(), job.getId());
-        entityManagerFactory.getCache().evictAll();
+        entityManager.flush();
+        entityManager.clear();
 
         ApplicationEntity reloaded = applications.findById(saved.getId()).orElseThrow();
 
