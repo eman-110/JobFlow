@@ -5,8 +5,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "companies", uniqueConstraints = @UniqueConstraint(
@@ -24,6 +28,9 @@ public class CompanyEntity {
 
     @Column(nullable = false, length = 100)
     private String country;
+
+    @OneToMany(mappedBy = "company")
+    private List<JobEntity> jobs = new ArrayList<>();
 
     protected CompanyEntity() {
     }
@@ -72,6 +79,32 @@ public class CompanyEntity {
 
     public void setCountry(String country) {
         this.country = requireText(country, 100, "Country");
+    }
+
+    public List<JobEntity> getJobs() {
+        return jobs;
+    }
+
+    public void addJob(JobEntity job) {
+        if (job == null) {
+            throw new IllegalArgumentException("Job is required.");
+        }
+        CompanyEntity previousCompany = job.getCompany();
+        if (previousCompany != null && previousCompany != this) {
+            previousCompany.removeJobReference(job);
+        }
+        job.setCompany(this);
+        addJobReference(job);
+    }
+
+    void addJobReference(JobEntity job) {
+        if (!jobs.contains(job)) {
+            jobs.add(job);
+        }
+    }
+
+    void removeJobReference(JobEntity job) {
+        jobs.remove(job);
     }
 
     private static String requireText(String value, int maxLength, String field) {

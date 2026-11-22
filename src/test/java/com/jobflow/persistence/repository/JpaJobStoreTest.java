@@ -60,7 +60,7 @@ class JpaJobStoreTest {
             JobEntity input = invocation.getArgument(0);
             return new JobEntity(
                     73,
-                    input.getCompanyId(),
+                    input.getCompany(),
                     input.getTitle(),
                     input.getLocation(),
                     input.getSalary()
@@ -79,17 +79,16 @@ class JpaJobStoreTest {
 
     @Test
     void resolvesCompanyNamesInOneBatchWhenReadingJobs() {
-        JobEntity first = new JobEntity(1, 12, "Backend Developer", "Remote", BigDecimal.ONE);
-        JobEntity second = new JobEntity(2, 12, "Frontend Developer", "Remote", BigDecimal.TEN);
         CompanyEntity company = new CompanyEntity(12, "Known Co", null, "US");
-        when(jobs.findAll()).thenReturn(List.of(first, second));
-        when(companies.findAllById(any(Iterable.class))).thenReturn(List.of(company));
+        JobEntity first = new JobEntity(1, company, "Backend Developer", "Remote", BigDecimal.ONE);
+        JobEntity second = new JobEntity(2, company, "Frontend Developer", "Remote", BigDecimal.TEN);
+        when(jobs.findAllWithCompany()).thenReturn(List.of(first, second));
 
         List<Job> result = store.findAll();
 
         assertEquals(List.of("Known Co", "Known Co"),
-                result.stream().map(Job::getCompany).toList());
-        verify(companies, times(1)).findAllById(any(Iterable.class));
+                result.stream().map(job -> job.getCompany()).toList());
+        verify(jobs, times(1)).findAllWithCompany();
         verify(companies, never()).findById(anyInt());
     }
 }

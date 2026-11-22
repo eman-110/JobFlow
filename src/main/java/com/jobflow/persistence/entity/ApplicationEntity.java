@@ -5,9 +5,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -27,11 +30,13 @@ public class ApplicationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity user;
 
-    @Column(name = "job_id", nullable = false)
-    private Integer jobId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "job_id", nullable = false)
+    private JobEntity job;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -43,14 +48,14 @@ public class ApplicationEntity {
     protected ApplicationEntity() {
     }
 
-    public ApplicationEntity(Integer id, Integer userId, Integer jobId) {
+    public ApplicationEntity(Integer id, UserEntity user, JobEntity job) {
         this.id = id;
-        setUserId(userId);
-        setJobId(jobId);
+        setUser(user);
+        setJob(job);
     }
 
-    public ApplicationEntity(Integer userId, Integer jobId) {
-        this(null, userId, jobId);
+    public ApplicationEntity(UserEntity user, JobEntity job) {
+        this(null, user, job);
     }
 
     @PrePersist
@@ -69,25 +74,33 @@ public class ApplicationEntity {
     }
 
     public Integer getUserId() {
-        return userId;
+        return user == null ? null : user.getId();
     }
 
-    public void setUserId(Integer userId) {
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("User ID must be positive.");
+    public UserEntity getUser() {
+        return user;
+    }
+
+    public void setUser(UserEntity user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User is required.");
         }
-        this.userId = userId;
+        this.user = user;
     }
 
     public Integer getJobId() {
-        return jobId;
+        return job == null ? null : job.getId();
     }
 
-    public void setJobId(Integer jobId) {
-        if (jobId == null || jobId <= 0) {
-            throw new IllegalArgumentException("Job ID must be positive.");
+    public JobEntity getJob() {
+        return job;
+    }
+
+    public void setJob(JobEntity job) {
+        if (job == null) {
+            throw new IllegalArgumentException("Job is required.");
         }
-        this.jobId = jobId;
+        this.job = job;
     }
 
     public JobStatus getStatus() {

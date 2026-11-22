@@ -5,10 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -25,6 +28,9 @@ public class UserEntity {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "user")
+    private List<ApplicationEntity> applications = new ArrayList<>();
 
     protected UserEntity() {
     }
@@ -76,6 +82,32 @@ public class UserEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public List<ApplicationEntity> getApplications() {
+        return applications;
+    }
+
+    public void addApplication(ApplicationEntity application) {
+        if (application == null) {
+            throw new IllegalArgumentException("Application is required.");
+        }
+        UserEntity previousUser = application.getUser();
+        if (previousUser != null && previousUser != this) {
+            previousUser.removeApplicationReference(application);
+        }
+        application.setUser(this);
+        addApplicationReference(application);
+    }
+
+    void addApplicationReference(ApplicationEntity application) {
+        if (!applications.contains(application)) {
+            applications.add(application);
+        }
+    }
+
+    void removeApplicationReference(ApplicationEntity application) {
+        applications.remove(application);
     }
 
     private static String requireText(String value, int maxLength, String field) {

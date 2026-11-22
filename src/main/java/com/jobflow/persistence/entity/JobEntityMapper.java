@@ -10,11 +10,11 @@ public final class JobEntityMapper {
     private JobEntityMapper() {
     }
 
-    public static JobEntity toEntity(Job job, Integer companyId) {
+    public static JobEntity toEntity(Job job, CompanyEntity company) {
         Objects.requireNonNull(job, "Job is required.");
         JobEntity entity = new JobEntity(
                 job.getId(),
-                companyId,
+                company,
                 job.getTitle(),
                 job.getLocation(),
                 BigDecimal.valueOf(job.getSalary())
@@ -23,12 +23,12 @@ public final class JobEntityMapper {
         return entity;
     }
 
-    public static Job toDomain(JobEntity entity, String companyName) {
+    public static Job toDomain(JobEntity entity) {
         Objects.requireNonNull(entity, "Job entity is required.");
         Job job = new Job(
                 entity.getId(),
                 entity.getTitle(),
-                companyName,
+                entity.getCompany().getName(),
                 entity.getLocation(),
                 entity.getSalary().doubleValue()
         );

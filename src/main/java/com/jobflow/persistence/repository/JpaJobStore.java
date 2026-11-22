@@ -14,9 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Repository
 @Profile("mysql")
@@ -35,7 +33,7 @@ public class JpaJobStore implements JobStore {
         CompanyEntity company = resolveCompany(job.getCompany());
         JobEntity entity = new JobEntity(
                 null,
-                company.getId(),
+                company,
                 job.getTitle(),
                 job.getLocation(),
                 BigDecimal.valueOf(job.getSalary())
@@ -48,20 +46,20 @@ public class JpaJobStore implements JobStore {
     @Override
     public void save(Job job) {
         CompanyEntity company = resolveCompany(job.getCompany());
-        JobEntity entity = JobEntityMapper.toEntity(job, company.getId());
+        JobEntity entity = JobEntityMapper.toEntity(job, company);
         jobs.save(entity);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Job> findAll() {
-        return toDomain(jobs.findAll());
+        return toDomain(jobs.findAllWithCompany());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<Job> findPage(Pageable pageable) {
-        Page<JobEntity> result = jobs.findAll(pageable);
+        Page<JobEntity> result = jobs.findAllWithCompany(pageable);
         List<Job> content = toDomain(result.getContent());
         return new PageImpl<>(content, pageable, result.getTotalElements());
     }
@@ -69,11 +67,7 @@ public class JpaJobStore implements JobStore {
     @Override
     @Transactional(readOnly = true)
     public Optional<Job> findById(int id) {
-        return jobs.findById(id).map(entity -> {
-            CompanyEntity company = companies.findById(entity.getCompanyId())
-                    .orElseThrow(() -> missingCompany(entity));
-            return JobEntityMapper.toDomain(entity, company.getName());
-        });
+        return jobs.findByIdWithCompany(id).map(JobEntityMapper::toDomain);
     }
 
     @Override
@@ -95,26 +89,6 @@ public class JpaJobStore implements JobStore {
     }
 
     private List<Job> toDomain(List<JobEntity> entities) {
-        if (entities.isEmpty()) {
-            return List.of();
-        }
-        List<Integer> companyIds = entities.stream()
-                .map(JobEntity::getCompanyId)
-                .distinct()
-                .toList();
-        Map<Integer, CompanyEntity> companiesById = companies.findAllById(companyIds).stream()
-                .collect(Collectors.toMap(CompanyEntity::getId, company -> company));
-        return entities.stream()
-                .map(entity -> JobEntityMapper.toDomain(
-                        entity,
-                        Optional.ofNullable(companiesById.get(entity.getCompanyId()))
-                                .map(CompanyEntity::getName)
-                                .orElseThrow(() -> missingCompany(entity))))
-                .toList();
-    }
-
-    private static IllegalStateException missingCompany(JobEntity entity) {
-        return new IllegalStateException(
-                "Company " + entity.getCompanyId() + " for job " + entity.getId() + " was not found.");
+        return entities.stream().map(JobEntityMapper::toDomain).toList();
     }
 }

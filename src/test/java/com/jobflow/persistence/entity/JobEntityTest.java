@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JobEntityTest {
+    private CompanyEntity company() {
+        return new CompanyEntity(42, "Northstar Labs", null, "Germany");
+    }
 
     @Test
     void shouldInitializeValuesAndDefaultToSaved() {
-        JobEntity job = new JobEntity(1, 42, "Java Developer", "Berlin", new BigDecimal("150000.00"));
+        JobEntity job = new JobEntity(1, company(), "Java Developer", "Berlin", new BigDecimal("150000.00"));
 
         assertEquals(1, job.getId());
         assertEquals(42, job.getCompanyId());
@@ -29,7 +32,7 @@ class JobEntityTest {
 
     @Test
     void shouldSupportTheFullConstructorAndZeroSalary() {
-        JobEntity job = new JobEntity(3, 42, "Java Developer", "Berlin", BigDecimal.ZERO);
+        JobEntity job = new JobEntity(3, company(), "Java Developer", "Berlin", BigDecimal.ZERO);
 
         assertEquals(3, job.getId());
         assertEquals(42, job.getCompanyId());
@@ -45,7 +48,7 @@ class JobEntityTest {
 
     @Test
     void shouldSetCreatedAtOnPersistenceAndPreserveAnExistingValue() {
-        JobEntity job = new JobEntity(1, 42, "Java Developer", "Berlin", BigDecimal.ONE);
+        JobEntity job = new JobEntity(1, company(), "Java Developer", "Berlin", BigDecimal.ONE);
 
         job.initializeCreatedAt();
         assertNotNull(job.getCreatedAt());
@@ -59,11 +62,11 @@ class JobEntityTest {
     @Test
     void shouldRejectInvalidSalaryAndBlankTitle() {
         assertThrows(IllegalArgumentException.class,
-                () -> new JobEntity(1, 42, "Developer", "Berlin", new BigDecimal("-0.01")));
+                () -> new JobEntity(1, company(), "Developer", "Berlin", new BigDecimal("-0.01")));
         assertThrows(IllegalArgumentException.class,
-                () -> new JobEntity(1, 42, " ", "Berlin", BigDecimal.ONE));
+                () -> new JobEntity(1, company(), " ", "Berlin", BigDecimal.ONE));
         assertThrows(IllegalArgumentException.class,
-                () -> new JobEntity(1, 42, "Developer", "Berlin", null));
+                () -> new JobEntity(1, company(), "Developer", "Berlin", null));
     }
 
     @Test

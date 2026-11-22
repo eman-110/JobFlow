@@ -14,10 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApplicationEntityTest {
+    private UserEntity user() {
+        return new UserEntity(3, "Ada Lovelace", "ada@example.test");
+    }
+
+    private JobEntity job() {
+        return new JobEntity(12,
+                new CompanyEntity(7, "Northstar Labs", null, "Germany"),
+                "Java Developer", "Berlin", java.math.BigDecimal.ONE);
+    }
 
     @Test
-    void shouldInitializeForeignKeysAndDefaultToApplied() {
-        ApplicationEntity application = new ApplicationEntity(9, 3, 12);
+    void shouldInitializeEntityReferencesAndDefaultToApplied() {
+        ApplicationEntity application = new ApplicationEntity(9, user(), job());
 
         assertEquals(9, application.getId());
         assertEquals(3, application.getUserId());
@@ -27,7 +36,7 @@ class ApplicationEntityTest {
 
     @Test
     void shouldSetAppliedAtOnPersistenceAndPreserveAnExistingValue() {
-        ApplicationEntity application = new ApplicationEntity(3, 12);
+        ApplicationEntity application = new ApplicationEntity(user(), job());
 
         application.initializeAppliedAt();
         assertNotNull(application.getAppliedAt());
@@ -40,8 +49,8 @@ class ApplicationEntityTest {
 
     @Test
     void shouldRejectMissingOrNonPositiveForeignKeys() {
-        assertThrows(IllegalArgumentException.class, () -> new ApplicationEntity(null, 12));
-        assertThrows(IllegalArgumentException.class, () -> new ApplicationEntity(3, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ApplicationEntity(null, job()));
+        assertThrows(IllegalArgumentException.class, () -> new ApplicationEntity(user(), null));
     }
 
     @Test

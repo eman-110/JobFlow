@@ -271,8 +271,22 @@ The Jakarta Persistence entity layer is in
 `src/main/java/com/jobflow/persistence/entity/`. Entities map to the
 version-controlled Flyway schema and include pre-persist timestamps, explicit
 enum string mappings, and the application composite unique constraint.
+`JobEntity` references its `CompanyEntity`, while `ApplicationEntity` references
+its `UserEntity` and `JobEntity`; the parent entities expose the corresponding
+collections through `mappedBy` relationships. The MySQL-profile
+`JobApplicationService` validates both records and duplicate applications and
+saves within a transaction. The database unique constraint remains the final
+guard against concurrent duplicate submissions.
+
+The JPA repositories include company joins, fetch-join queries for relationship
+loading, and a `JobSummary` DTO projection that avoids returning entity graphs.
+The MySQL Testcontainers integration suite verifies relationship navigation,
+duplicate protection, transaction rollback, and the SQL statement reduction
+from a company fetch join. Run `.\mvnw.cmd clean verify`; CI requires all 27
+MySQL integration tests to pass without skips.
+
 `JobEntityMapper` maps domain jobs and persisted records; `JpaJobStore` resolves
-company names and stores the MySQL-generated job ID in the API model. The
+company entities and stores the MySQL-generated job ID in the API model. The
 standalone SQL examples and JPQL exercises remain in `database/` and
 `database/jpql_queries.md`.
 

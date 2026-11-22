@@ -8,11 +8,17 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "jobs")
@@ -21,8 +27,9 @@ public class JobEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "company_id", nullable = false)
-    private Integer companyId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false)
+    private CompanyEntity company;
 
     @Column(nullable = false, length = 100)
     private String title;
@@ -40,15 +47,22 @@ public class JobEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @OneToMany(mappedBy = "job")
+    private List<ApplicationEntity> applications = new ArrayList<>();
+
     protected JobEntity() {
     }
 
-    public JobEntity(Integer id, Integer companyId, String title, String location, BigDecimal salary) {
+    public JobEntity(Integer id, CompanyEntity company, String title, String location, BigDecimal salary) {
         this.id = id;
-        setCompanyId(companyId);
+        setCompany(company);
         setTitle(title);
         setLocation(location);
         setSalary(salary);
+    }
+
+    public JobEntity(CompanyEntity company, String title, String location, BigDecimal salary) {
+        this(null, company, title, location, salary);
     }
 
     @PrePersist
@@ -67,14 +81,18 @@ public class JobEntity {
     }
 
     public Integer getCompanyId() {
-        return companyId;
+        return company == null ? null : company.getId();
     }
 
-    public void setCompanyId(Integer companyId) {
-        if (companyId == null || companyId <= 0) {
-            throw new IllegalArgumentException("Company ID must be positive.");
+    public CompanyEntity getCompany() {
+        return company;
+    }
+
+    public void setCompany(CompanyEntity company) {
+        if (company == null) {
+            throw new IllegalArgumentException("Company is required.");
         }
-        this.companyId = companyId;
+        this.company = company;
     }
 
     public String getTitle() {
@@ -125,6 +143,32 @@ public class JobEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public List<ApplicationEntity> getApplications() {
+        return applications;
+    }
+
+    public void addApplication(ApplicationEntity application) {
+        if (application == null) {
+            throw new IllegalArgumentException("Application is required.");
+        }
+        JobEntity previousJob = application.getJob();
+        if (previousJob != null && previousJob != this) {
+            previousJob.removeApplicationReference(application);
+        }
+        application.setJob(this);
+        addApplicationReference(application);
+    }
+
+    void addApplicationReference(ApplicationEntity application) {
+        if (!applications.contains(application)) {
+            applications.add(application);
+        }
+    }
+
+    void removeApplicationReference(ApplicationEntity application) {
+        applications.remove(application);
     }
 
     private static String requireText(String value, int maxLength, String field) {
