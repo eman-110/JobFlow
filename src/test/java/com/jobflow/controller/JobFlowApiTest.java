@@ -15,6 +15,8 @@ import java.net.URI;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -29,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class JobFlowApiTest {
+    private static final String ADMIN = "test-admin@jobflow.local";
+    private static final String ADMIN_PASSWORD = "test-admin-password";
 
     @Autowired
     private MockMvc mockMvc;
@@ -52,6 +56,8 @@ class JobFlowApiTest {
     @Test
     void shouldCreateJobAndReturnCreated() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Java Developer", "Google", "London", 120000)))
                 .andExpect(status().isCreated())
@@ -66,6 +72,8 @@ class JobFlowApiTest {
     @Test
     void shouldReturnStructuredErrorsForInvalidJobRequests() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":" ", "company":"Google", "location":"London", "salary":120000}
@@ -77,6 +85,8 @@ class JobFlowApiTest {
                 .andExpect(jsonPath("$.errors.title").exists());
 
         mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"Java Developer", "company":"Google", "location":"London"}
@@ -85,6 +95,8 @@ class JobFlowApiTest {
                 .andExpect(jsonPath("$.errors.salary").exists());
 
         mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Java Developer", "Google", "London", -1)))
                 .andExpect(status().isBadRequest())
@@ -94,6 +106,8 @@ class JobFlowApiTest {
     @Test
     void shouldReturnStructuredErrorForMalformedJson() throws Exception {
         mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {
@@ -130,6 +144,8 @@ class JobFlowApiTest {
         int id = createJob("Original title", "Original company", "Original location", 90000);
 
         mockMvc.perform(put("/api/jobs/{id}", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Updated title", "Updated company", "Updated location", 110000)))
                 .andExpect(status().isOk())
@@ -141,6 +157,8 @@ class JobFlowApiTest {
                 .andExpect(jsonPath("$.status").value("SAVED"));
 
         mockMvc.perform(put("/api/jobs/999999")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Updated title", "Updated company", "Updated location", 110000)))
                 .andExpect(status().isNotFound());
@@ -151,24 +169,32 @@ class JobFlowApiTest {
         int id = createJob("Validation title", "Validation company", "Validation location", 90000);
 
         mockMvc.perform(put("/api/jobs/{id}", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson("Updated title", "C".repeat(101), "London", 100000)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.company").exists());
 
         mockMvc.perform(patch("/api/jobs/{id}/salary", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"salary\":-10}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.salary").exists());
 
         mockMvc.perform(patch("/api/jobs/{id}/salary", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.salary").exists());
 
         mockMvc.perform(patch("/api/jobs/{id}/status", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -179,11 +205,15 @@ class JobFlowApiTest {
     void shouldPatchSalaryWithoutChangingOtherJobDetails() throws Exception {
         int id = createJob("Salary patch title", "Salary patch company", "Salary patch location", 90000);
         mockMvc.perform(patch("/api/jobs/{id}/status", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"status\":\"APPLIED\"}"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(patch("/api/jobs/{id}/salary", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"salary\":125000}"))
                 .andExpect(status().isOk())
@@ -200,6 +230,8 @@ class JobFlowApiTest {
         int id = createJob("Status title", "Status company", "Status location", 100000);
 
         mockMvc.perform(patch("/api/jobs/{id}/status", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content("{\"status\":\"INTERVIEW\"}"))
                 .andExpect(status().isConflict())
@@ -221,10 +253,14 @@ class JobFlowApiTest {
     void shouldDeleteJobAndReturnNotFoundWhenRepeated() throws Exception {
         int id = createJob("Delete title", "Delete company", "Delete location", 80000);
 
-        mockMvc.perform(delete("/api/jobs/{id}", id))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/jobs/{id}", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf()))
+                        .andExpect(status().isNoContent());
 
-        mockMvc.perform(delete("/api/jobs/{id}", id))
+        mockMvc.perform(delete("/api/jobs/{id}", id)
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -253,6 +289,8 @@ class JobFlowApiTest {
 
     private int createJob(String title, String company, String location, double salary) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/jobs")
+                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(jobJson(title, company, location, salary)))
                 .andExpect(status().isCreated())

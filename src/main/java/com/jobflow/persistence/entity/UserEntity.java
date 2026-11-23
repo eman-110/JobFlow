@@ -2,6 +2,8 @@ package com.jobflow.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,6 +27,13 @@ public class UserEntity {
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
+
+    @Column(name = "password_hash", length = 60)
+    private String passwordHash;
+
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.USER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -74,6 +83,28 @@ public class UserEntity {
 
     public void setEmail(String email) {
         this.email = requireText(email, 255, "Email");
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        if (passwordHash != null && (passwordHash.isBlank() || passwordHash.length() > 60)) {
+            throw new IllegalArgumentException("Password hash must be non-blank and at most 60 characters.");
+        }
+        this.passwordHash = passwordHash;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        if (role == null) {
+            throw new IllegalArgumentException("User role is required.");
+        }
+        this.role = role;
     }
 
     public LocalDateTime getCreatedAt() {

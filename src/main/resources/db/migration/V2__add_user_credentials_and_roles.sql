@@ -1,0 +1,4 @@
+ALTER TABLE users
+    ADD COLUMN password_hash VARCHAR(60) NULL,
+    ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    ADD CONSTRAINT chk_users_role CHECK (role IN ('USER', 'RECRUITER', 'ADMIN'));

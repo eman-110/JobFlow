@@ -5,6 +5,7 @@ import com.jobflow.persistence.entity.ApplicationEntity;
 import com.jobflow.persistence.entity.CompanyEntity;
 import com.jobflow.persistence.entity.JobEntity;
 import com.jobflow.persistence.entity.UserEntity;
+import com.jobflow.persistence.entity.UserRole;
 import com.jobflow.model.Job;
 import com.jobflow.repository.JobStore;
 import com.jobflow.service.JobApplicationService;
@@ -14,18 +15,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -41,10 +47,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("mysql")
 @Testcontainers
+@org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
 class JobJpaRepositoryIntegrationTest {
     @Container
     private static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -88,6 +101,12 @@ class JobJpaRepositoryIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void clearDatabase() {
@@ -431,6 +450,51 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    void authenticatedUserSubmitsApplicationForTheirOwnAccount() throws Exception {
+        UserEntity user = saveAuthenticatedUser("applicant@example.test");
+        JobEntity job = saveJob("Authenticated Applicant Engineer", "175000.00");
+
+        mockMvc.perform(post("/api/applications/{jobId}", job.getId())
+                        .with(httpBasic(user.getEmail(), "user-password"))
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.jobId").value(job.getId()))
+                .andExpect(jsonPath("$.status").value("APPLIED"));
+
+        assertTrue(applications.existsByUser_IdAndJob_Id(user.getId(), job.getId()));
+    }
+
+    @Test
+    void submittedApplicationUsesAuthenticatedIdentityInsteadOfRequestedUserId() throws Exception {
+        UserEntity authenticatedUser = saveAuthenticatedUser("authenticated@example.test");
+        UserEntity otherUser = saveAuthenticatedUser("other@example.test");
+        JobEntity job = saveJob("Identity-bound Applicant Engineer", "180000.00");
+
+        mockMvc.perform(post("/api/applications/{jobId}", job.getId())
+                        .param("userId", otherUser.getId().toString())
+                        .with(httpBasic(authenticatedUser.getEmail(), "user-password"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":%d}".formatted(otherUser.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber());
+
+        assertTrue(applications.existsByUser_IdAndJob_Id(authenticatedUser.getId(), job.getId()));
+        assertFalse(applications.existsByUser_IdAndJob_Id(otherUser.getId(), job.getId()));
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "RECRUITER")
+    void applicationServiceMethodSecurityRejectsRecruiters() {
+        UserEntity user = saveAuthenticatedUser("method-security@example.test");
+        JobEntity job = saveJob("Method Security Engineer", "185000.00");
+
+        assertThrows(AccessDeniedException.class,
+                () -> applicationService.applyForAuthenticatedUser(user.getEmail(), job.getId()));
+        assertFalse(applications.existsByUser_IdAndJob_Id(user.getId(), job.getId()));
+    }
+
+    @Test
     void applicationIsRolledBackWhenAnEnclosingWorkflowFails() {
         UserEntity user = saveUser();
         JobEntity job = saveJob("Rollback Workflow Engineer", "165000.00");
@@ -480,6 +544,13 @@ class JobJpaRepositoryIntegrationTest {
     private UserEntity saveUser() {
         String uniqueEmail = "user-" + UUID.randomUUID() + "@example.test";
         return users.saveAndFlush(new UserEntity("Integration User", uniqueEmail));
+    }
+
+    private UserEntity saveAuthenticatedUser(String email) {
+        UserEntity user = new UserEntity("Security Integration User", email);
+        user.setPasswordHash(passwordEncoder.encode("user-password"));
+        user.setRole(UserRole.USER);
+        return users.saveAndFlush(user);
     }
 
     private CompanyEntity saveCompany() {

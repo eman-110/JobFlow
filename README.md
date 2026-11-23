@@ -20,6 +20,8 @@ JobFlow is a Java application for managing and exploring job listings. It demons
   profiles, including capacity and notification settings.
 - Define standalone Jakarta Persistence entities and JPQL practice queries
   and persist jobs to MySQL with Spring Data JPA and Flyway migrations.
+- Protect job mutations and application submissions with role-based Spring
+  Security, BCrypt password hashing, and MySQL-backed user credentials.
 
 ## Data structures and algorithms
 
@@ -50,6 +52,7 @@ Algorithm tests cover empty and already-sorted arrays, duplicates, negative valu
 - Java 25 (LTS)
 - Apache Maven
 - Spring Boot 4.1.2
+- Spring Security
 - Jakarta Persistence
 - Spring Web MVC
 - Jakarta Bean Validation
@@ -64,11 +67,13 @@ src/
   main/
     java/com/jobflow/
       JobFlowApplication
-      api/            ApiErrorResponse, ApplicationInfo, JobRequest,
-                      JobResponse, SalaryUpdateRequest, StatusUpdateRequest
+      api/            ApiErrorResponse, ApplicationInfo, ApplicationResponse,
+                      CsrfTokenResponse, JobRequest, JobResponse,
+                      SalaryUpdateRequest, StatusUpdateRequest
       app/            Main
-      config/         AppConfig, JobFlowProperties
-      controller/     ApplicationInfoController, HelloController, JobController
+      config/         AppConfig, JobFlowProperties, SecurityConfig
+      controller/     ApplicationInfoController, CsrfTokenController,
+                      HelloController, JobApplicationController, JobController
       exception/      ApiExceptionHandler, JobNotFoundException
       model/          Job, JobSeeker, JobStatus, User
       notification/   EmailNotification, NotificationService,
@@ -80,7 +85,7 @@ src/
                       SearchingAlgorithms, SinglyLinkedList,
                       SortingAlgorithms, ValidParentheses
       persistence/entity/
-                        CompanyEntity, JobEntity, UserEntity,
+                        CompanyEntity, JobEntity, UserEntity, UserRole,
                         ApplicationEntity, JobEntityMapper
       persistence/repository/
                         CompanyJpaRepository, JobJpaRepository,
@@ -97,7 +102,8 @@ src/
       controller/     JobFlowApiTest, JobControllerTest
       model/          JobTest
       repository/     JobRepositoryTest
-      service/        JobServiceTest, JobServiceMockitoTest
+      service/        DatabaseUserDetailsService, JobApplicationService,
+                      JobServiceTest, JobServiceMockitoTest
       persistence/entity/
                         CompanyEntityTest, JobEntityTest,
                         UserEntityTest, ApplicationEntityTest,
@@ -134,9 +140,10 @@ Run the complete test suite:
 Tests cover service behavior with Mockito, MVC behavior with MockMvc, structured
 400/404/409 responses, request validation, profile configuration, and salary
 boundaries. The API tests use the in-memory repository and do not require MySQL.
-The MySQL repository integration tests use Testcontainers and require Docker;
-CI verifies Docker availability and fails if any of the 14 integration tests
-are skipped.
+Security tests verify public reads, role-restricted job mutations, password
+verification, and application ownership. The MySQL repository integration
+tests use Testcontainers and require Docker; CI verifies Docker availability
+and fails if any of the 30 integration tests are skipped.
 
 Generate and review the JaCoCo coverage report:
 
@@ -234,6 +241,8 @@ API supports:
 - `DELETE /api/jobs/{id}` to remove a listing.
 - `GET /api/jobs/search?company=Tech%20Solutions` and
   `GET /api/jobs/high-paying?minimumSalary=150000` for filtering.
+- `POST /api/applications/{jobId}` to submit an application as the authenticated
+  user (MySQL profile only; the request never accepts a `userId`).
 
 Request bodies are validated: text fields must be nonblank and at most 100
 characters, and salaries must be present and non-negative. Errors use a JSON
@@ -246,6 +255,55 @@ and Maven outputs are ignored by Git.
 
 GitHub Actions runs `./mvnw clean verify` on pushes and pull requests targeting
 `main`.
+
+## Security
+
+The REST API uses HTTP Basic authentication and the following authorization
+rules:
+
+| Operation | Access |
+| --- | --- |
+| `GET /api/jobs/**`, `/api/info`, `/api/csrf`, `/hello` | Public |
+| `POST`, `PUT`, or `PATCH /api/jobs/**` | `RECRUITER` or `ADMIN` |
+| `DELETE /api/jobs/**` | `ADMIN` |
+| `POST /api/applications/{jobId}` | `USER` |
+
+Other routes and HTTP methods are denied by default. Job listing updates,
+including the salary and status PATCH endpoints, require `RECRUITER` or
+`ADMIN`. A new application is always associated with the authenticated
+principal's email; a caller-supplied user ID is not used. The lower-level
+ID-based application service operation is restricted to `ADMIN`, while
+authenticated user submissions are guarded by method-level security.
+
+The `dev` profile has three development-only in-memory accounts:
+`jobseeker@jobflow.local` / `dev-user-password`,
+`recruiter@jobflow.local` / `dev-recruiter-password`, and
+`admin@jobflow.local` / `dev-admin-password`. Override usernames and passwords
+with `JOBFLOW_DEV_USER_USERNAME`, `JOBFLOW_DEV_USER_PASSWORD`,
+`JOBFLOW_DEV_RECRUITER_USERNAME`, `JOBFLOW_DEV_RECRUITER_PASSWORD`,
+`JOBFLOW_DEV_ADMIN_USERNAME`, and `JOBFLOW_DEV_ADMIN_PASSWORD`. These defaults
+are for local development only and are not enabled in the production profile.
+Tests have separate test-only identities. Do not reuse the development
+passwords outside local development.
+
+Under the `mysql` profile, `DatabaseUserDetailsService` authenticates against
+`users.email`, `users.password_hash`, and `users.role`. Flyway migration V2
+adds those columns without modifying V1. Password hashes are BCrypt values;
+existing users with no password hash cannot authenticate until provisioned
+through a trusted administrative process. Never put plaintext passwords in
+the database or commit production credentials. The current `prod` profile
+fails closed because it has no production identity provider configured; wire
+an approved production identity provider before enabling authenticated
+operations there.
+
+CSRF protection remains enabled. API clients first call `GET /api/csrf`, retain
+the returned session cookie, and send the returned token in the `X-CSRF-TOKEN`
+header on state-changing requests, in addition to Basic credentials. The
+session stores the CSRF token only; authentication is performed with Basic
+credentials on each request. Security tests use Spring Security's CSRF request
+postprocessor and exercise real authorization and business outcomes; run them
+with `.\mvnw.cmd -Dtest=SecurityIntegrationTest test`. The complete test
+command also runs the MySQL Testcontainers suite and requires Docker.
 
 ## Relational database practice
 
@@ -282,8 +340,10 @@ The JPA repositories include company joins, fetch-join queries for relationship
 loading, and a `JobSummary` DTO projection that avoids returning entity graphs.
 The MySQL Testcontainers integration suite verifies relationship navigation,
 duplicate protection, transaction rollback, and the SQL statement reduction
-from a company fetch join. Run `.\mvnw.cmd clean verify`; CI requires all 27
-MySQL integration tests to pass without skips.
+from a company fetch join. It also checks database-backed authentication and
+that application submissions use the authenticated user's identity. Run
+`.\mvnw.cmd clean verify`; CI requires all 30 MySQL integration tests to pass
+without skips.
 
 `JobEntityMapper` maps domain jobs and persisted records; `JpaJobStore` resolves
 company entities and stores the MySQL-generated job ID in the API model. The
