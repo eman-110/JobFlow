@@ -455,7 +455,9 @@ class JobJpaRepositoryIntegrationTest {
         JobEntity job = saveJob("Authenticated Applicant Engineer", "175000.00");
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
-                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
+                        .with(jwt().jwt(j -> j.subject(user.getId().toString())
+                                .claim("role", "USER")
+                                .claim("token_type", "access")))
                         )
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.jobId").value(job.getId()))
@@ -472,7 +474,9 @@ class JobJpaRepositoryIntegrationTest {
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
                         .param("userId", otherUser.getId().toString())
-                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
+                        .with(jwt().jwt(j -> j.subject(authenticatedUser.getId().toString())
+                                .claim("role", "USER")
+                                .claim("token_type", "access")))
                         
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":%d}".formatted(otherUser.getId())))
