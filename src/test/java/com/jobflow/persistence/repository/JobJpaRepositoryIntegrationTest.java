@@ -29,6 +29,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +46,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -487,12 +493,24 @@ class JobJpaRepositoryIntegrationTest {
         UserEntity otherUser = saveAuthenticatedUser("other@example.test");
         JobEntity job = saveJob("Identity-bound Applicant Engineer", "180000.00");
 
-        mockMvc.perform(post("/api/applications/{jobId}", job.getId())
-                        .with(jwt().jwt(j -> j.subject(otherUser.getId().toString())
-                                .claim("role", "USER")
-                                .claim("token_type", "access"))
-                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))))
-                .andExpect(status().isForbidden());
+        SecurityContext originalContext = SecurityContextHolder.getContext();
+        try {
+            SecurityContext mismatchedContext = SecurityContextHolder.createEmptyContext();
+            Jwt authenticatedJwt = Jwt.withTokenValue("service-boundary-test")
+                    .header("alg", "none")
+                    .subject(authenticatedUser.getId().toString())
+                    .issuedAt(Instant.now())
+                    .expiresAt(Instant.now().plusSeconds(60))
+                    .build();
+            mismatchedContext.setAuthentication(new JwtAuthenticationToken(
+                    authenticatedJwt, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+            SecurityContextHolder.setContext(mismatchedContext);
+
+            assertThrows(AccessDeniedException.class,
+                    () -> applicationService.applyForAuthenticatedUserId(otherUser.getId(), job.getId()));
+        } finally {
+            SecurityContextHolder.setContext(originalContext);
+        }
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
                         .param("userId", otherUser.getId().toString())
