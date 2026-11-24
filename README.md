@@ -144,7 +144,7 @@ boundaries. The API tests use the in-memory repository and do not require MySQL.
 Security tests verify public reads, role-restricted job mutations, password
 verification, and application ownership. The MySQL repository integration
 tests use Testcontainers and require Docker; CI verifies Docker availability
-and fails if any of the 30 integration tests are skipped.
+and fails if any of the 32 integration tests are skipped.
 
 Generate and review the JaCoCo coverage report:
 
@@ -308,9 +308,11 @@ Set `JWT_SECRET` to a Base64-encoded random secret of at least 32 decoded
 bytes. Access tokens expire after 15 minutes by default
 (`JWT_ACCESS_TOKEN_MINUTES`) and refresh credentials expire after seven days
 (`JWT_REFRESH_TOKEN_DAYS`). JWT issuer/audience can be configured with
-`JWT_ISSUER` and `JWT_AUDIENCE`. Production startup fails when `JWT_SECRET`
-is missing. Refresh credentials are generated with 256 bits of randomness,
-SHA-256 hashed before database storage, and rotated transactionally.
+`JWT_ISSUER` and `JWT_AUDIENCE`. Every non-test profile requires `JWT_SECRET`;
+only test configuration supplies an explicit test-only secret. Refresh
+credentials are generated with 256 bits of randomness, SHA-256 hashed before
+database storage, and rotated transactionally. Reuse of a rotated credential
+revokes every token in its family before returning an unauthorized response.
 
 Example:
 
@@ -359,7 +361,7 @@ The MySQL Testcontainers integration suite verifies relationship navigation,
 duplicate protection, transaction rollback, and the SQL statement reduction
 from a company fetch join. It also checks database-backed authentication and
 that application submissions use the authenticated user's identity. Run
-`.\mvnw.cmd clean verify`; CI requires all 30 MySQL integration tests to pass
+`.\mvnw.cmd clean verify`; CI requires all 32 MySQL integration tests to pass
 without skips.
 
 `JobEntityMapper` maps domain jobs and persisted records; `JpaJobStore` resolves

@@ -22,7 +22,6 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @Configuration
@@ -66,21 +65,22 @@ public class JwtConfig {
         return decoder;
     }
 
-    private byte[] resolveSecret(String configuredSecret, Environment environment) {
+    byte[] resolveSecret(String configuredSecret, Environment environment) {
         if (configuredSecret != null && !configuredSecret.isBlank()) {
+            byte[] decoded;
             try {
-                byte[] decoded = Base64.getDecoder().decode(configuredSecret);
-                if (decoded.length < 32) {
-                    throw new IllegalArgumentException("JWT_SECRET must decode to at least 32 bytes.");
-                }
-                return decoded;
+                decoded = Base64.getDecoder().decode(configuredSecret);
             } catch (IllegalArgumentException exception) {
                 throw new IllegalArgumentException("JWT_SECRET must be valid Base64.", exception);
             }
+            if (decoded.length < 32) {
+                throw new IllegalArgumentException("JWT_SECRET must decode to at least 32 bytes.");
+            }
+            return decoded;
         }
-        if (environment.matchesProfiles("prod")) {
-            throw new IllegalStateException("JWT_SECRET is required in the prod profile.");
+        if (environment.matchesProfiles("test")) {
+            throw new IllegalStateException("The test profile must configure an explicit JWT secret.");
         }
-        return "JobFlow-local-development-secret-32bytes!".getBytes(StandardCharsets.UTF_8);
+        throw new IllegalStateException("JWT_SECRET is required outside the test profile.");
     }
 }

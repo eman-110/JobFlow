@@ -8,6 +8,10 @@ import com.jobflow.persistence.repository.JobJpaRepository;
 import com.jobflow.persistence.repository.UserJpaRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +57,11 @@ public class JobApplicationService {
     public ApplicationEntity applyForAuthenticatedUserId(Integer userId, Integer jobId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("Authenticated user ID must be positive.");
+        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken jwtAuthentication)
+                || !String.valueOf(userId).equals(jwtAuthentication.getToken().getSubject())) {
+            throw new AccessDeniedException("Authenticated identity does not match the requested user.");
         }
         UserEntity user = users.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user does not exist."));

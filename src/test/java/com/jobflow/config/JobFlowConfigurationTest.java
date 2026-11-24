@@ -15,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
                 "jobflow.version=9.9",
                 "jobflow.environment=testing",
                 "jobflow.notifications.enabled=false",
-                "jobflow.max-jobs=7"
+                "jobflow.max-jobs=7",
+                "jobflow.jwt.secret=4Bk/UD43/8ySHPhA+W3IHDYXk/Ce0oEg2Vm2rTjAlBU="
         })
 class JobFlowConfigurationTest {
     @Autowired

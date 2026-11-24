@@ -14,6 +14,7 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEnt
     @Query("select r from RefreshTokenEntity r join fetch r.user where r.tokenHash = :hash")
     Optional<RefreshTokenEntity> findByTokenHashForUpdate(@Param("hash") String hash);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RefreshTokenEntity r where r.familyId = :family")
-    java.util.List<RefreshTokenEntity> findByFamilyId(@Param("family") String family);
+    java.util.List<RefreshTokenEntity> findByFamilyIdForUpdate(@Param("family") String family);
 }

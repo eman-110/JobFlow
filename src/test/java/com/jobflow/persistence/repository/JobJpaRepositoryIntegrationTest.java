@@ -9,6 +9,8 @@ import com.jobflow.persistence.entity.UserRole;
 import com.jobflow.model.Job;
 import com.jobflow.repository.JobStore;
 import com.jobflow.service.JobApplicationService;
+import com.jobflow.service.RefreshTokenService;
+import com.jobflow.service.RefreshTokenService.RefreshTokenException;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,9 @@ import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -70,6 +75,8 @@ class JobJpaRepositoryIntegrationTest {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
+        registry.add("jobflow.jwt.secret",
+                () -> "4Bk/UD43/8ySHPhA+W3IHDYXk/Ce0oEg2Vm2rTjAlBU=");
     }
 
     @Autowired
@@ -83,6 +90,12 @@ class JobJpaRepositoryIntegrationTest {
 
     @Autowired
     private ApplicationJpaRepository applications;
+
+    @Autowired
+    private RefreshTokenService refreshTokens;
+
+    @Autowired
+    private RefreshTokenJpaRepository refreshTokenRepository;
 
     @Autowired
     private JobStore jobStore;
@@ -110,6 +123,7 @@ class JobJpaRepositoryIntegrationTest {
 
     @BeforeEach
     void clearDatabase() {
+        refreshTokenRepository.deleteAll();
         applications.deleteAll();
         jobs.deleteAll();
         users.deleteAll();
@@ -474,6 +488,13 @@ class JobJpaRepositoryIntegrationTest {
         JobEntity job = saveJob("Identity-bound Applicant Engineer", "180000.00");
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
+                        .with(jwt().jwt(j -> j.subject(otherUser.getId().toString())
+                                .claim("role", "USER")
+                                .claim("token_type", "access"))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/applications/{jobId}", job.getId())
                         .param("userId", otherUser.getId().toString())
                         .with(jwt().jwt(j -> j.subject(authenticatedUser.getId().toString())
                                 .claim("role", "USER")
@@ -487,6 +508,59 @@ class JobJpaRepositoryIntegrationTest {
 
         assertTrue(applications.existsByUser_IdAndJob_Id(authenticatedUser.getId(), job.getId()));
         assertFalse(applications.existsByUser_IdAndJob_Id(otherUser.getId(), job.getId()));
+    }
+
+    @Test
+    void reusedRefreshTokenRevokesItsEntireFamilyInTheDatabase() {
+        UserEntity user = saveUser();
+        String tokenA = refreshTokens.create(user);
+        RefreshTokenService.RotatedUser rotation = refreshTokens.rotate(tokenA);
+        String tokenB = rotation.replacement();
+
+        assertThrows(RefreshTokenException.class, () -> refreshTokens.rotate(tokenA));
+        assertThrows(RefreshTokenException.class, () -> refreshTokens.rotate(tokenB));
+
+        List<com.jobflow.persistence.entity.RefreshTokenEntity> family = refreshTokenRepository.findAll();
+        assertEquals(2, family.size());
+        assertTrue(family.stream().allMatch(token -> token.getRevokedAt() != null));
+    }
+
+    @Test
+    void concurrentRefreshRequestsAllowOnlyOneRotationAndRevokeTheFamily() throws Exception {
+        UserEntity user = saveUser();
+        String tokenA = refreshTokens.create(user);
+        var executor = Executors.newFixedThreadPool(2);
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        try {
+            var first = executor.submit(() -> rotateConcurrently(tokenA, ready, start));
+            var second = executor.submit(() -> rotateConcurrently(tokenA, ready, start));
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            List<String> replacements = java.util.stream.Stream.of(
+                            first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))
+                    .filter(java.util.Objects::nonNull).toList();
+            assertEquals(1, replacements.size());
+            assertThrows(RefreshTokenException.class, () -> refreshTokens.rotate(replacements.getFirst()));
+            assertTrue(refreshTokenRepository.findAll().stream()
+                    .allMatch(token -> token.getRevokedAt() != null));
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private String rotateConcurrently(String credential, CountDownLatch ready, CountDownLatch start)
+            throws InterruptedException {
+        ready.countDown();
+        if (!start.await(5, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Concurrent refresh test did not start.");
+        }
+        try {
+            return refreshTokens.rotate(credential).replacement();
+        } catch (RefreshTokenException rejected) {
+            return null;
+        }
     }
 
     @Test

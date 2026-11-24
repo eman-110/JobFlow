@@ -25,6 +25,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -291,16 +294,20 @@ class JwtAuthenticationTest {
                 {"email":"concurrent@example.com","password":"ExamplePassword123!"}
                 """)).andExpect(status().isOk()).andReturn();
         String refresh = extract(login.getResponse().getContentAsString(), "refreshToken");
-        int successes = 0;
-        var first = mockMvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
-                {"refreshToken":"%s"}
-                """.formatted(refresh))).andReturn();
-        if (first.getResponse().getStatus() == 200) successes++;
-        var second = mockMvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
-                {"refreshToken":"%s"}
-                """.formatted(refresh))).andReturn();
-        if (second.getResponse().getStatus() == 200) successes++;
-        org.junit.jupiter.api.Assertions.assertTrue(successes <= 1);
+        var executor = Executors.newFixedThreadPool(2);
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        try {
+            var first = executor.submit(() -> refreshConcurrently(refresh, ready, start));
+            var second = executor.submit(() -> refreshConcurrently(refresh, ready, start));
+            org.junit.jupiter.api.Assertions.assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            int successes = first.get(10, TimeUnit.SECONDS) + second.get(10, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertEquals(1, successes);
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -314,6 +321,16 @@ class JwtAuthenticationTest {
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
                 {"name":"Test User","email":"%s","password":"ExamplePassword123!"}
                 """.formatted(email))).andExpect(status().isCreated());
+    }
+
+    private int refreshConcurrently(String refresh, CountDownLatch ready, CountDownLatch start) throws Exception {
+        ready.countDown();
+        if (!start.await(5, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Concurrent refresh test did not start.");
+        }
+        return mockMvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
+                {"refreshToken":"%s"}
+                """.formatted(refresh))).andReturn().getResponse().getStatus() == 200 ? 1 : 0;
     }
 
     private String loginAndGetAccess(String email) throws Exception {
