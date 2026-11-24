@@ -22,6 +22,7 @@ JobFlow is a Java application for managing and exploring job listings. It demons
   and persist jobs to MySQL with Spring Data JPA and Flyway migrations.
 - Protect job mutations and application submissions with role-based Spring
   Security, BCrypt password hashing, and MySQL-backed user credentials.
+- Use signed HS256 JWT access tokens and rotating opaque refresh credentials.
 
 ## Data structures and algorithms
 
@@ -258,12 +259,14 @@ GitHub Actions runs `./mvnw clean verify` on pushes and pull requests targeting
 
 ## Security
 
-The REST API uses HTTP Basic authentication and the following authorization
-rules:
+The REST API uses stateless bearer JWT authentication and the following
+authorization rules:
 
 | Operation | Access |
 | --- | --- |
-| `GET /api/jobs/**`, `/api/info`, `/api/csrf`, `/hello` | Public |
+| `GET /api/jobs/**`, `/api/info`, `/hello` | Public |
+| `POST /api/auth/register`, `/login`, `/refresh`, `/logout` | Public |
+| `GET /api/auth/me` | Authenticated |
 | `POST`, `PUT`, or `PATCH /api/jobs/**` | `RECRUITER` or `ADMIN` |
 | `DELETE /api/jobs/**` | `ADMIN` |
 | `POST /api/applications/{jobId}` | `USER` |
@@ -271,7 +274,7 @@ rules:
 Other routes and HTTP methods are denied by default. Job listing updates,
 including the salary and status PATCH endpoints, require `RECRUITER` or
 `ADMIN`. A new application is always associated with the authenticated
-principal's email; a caller-supplied user ID is not used. The lower-level
+stable database user ID; a caller-supplied user ID is not used. The lower-level
 ID-based application service operation is restricted to `ADMIN`, while
 authenticated user submissions are guarded by method-level security.
 
@@ -296,14 +299,28 @@ fails closed because it has no production identity provider configured; wire
 an approved production identity provider before enabling authenticated
 operations there.
 
-CSRF protection remains enabled. API clients first call `GET /api/csrf`, retain
-the returned session cookie, and send the returned token in the `X-CSRF-TOKEN`
-header on state-changing requests, in addition to Basic credentials. The
-session stores the CSRF token only; authentication is performed with Basic
-credentials on each request. Security tests use Spring Security's CSRF request
-postprocessor and exercise real authorization and business outcomes; run them
-with `.\mvnw.cmd -Dtest=SecurityIntegrationTest test`. The complete test
-command also runs the MySQL Testcontainers suite and requires Docker.
+CSRF is disabled because this API uses bearer credentials only and creates no
+authentication cookie or HTTP session. State-changing browser credential
+forms are not supported. `/api/csrf` remains only as a compatibility endpoint
+and does not enable cookie authentication.
+
+Set `JWT_SECRET` to a Base64-encoded random secret of at least 32 decoded
+bytes. Access tokens expire after 15 minutes by default
+(`JWT_ACCESS_TOKEN_MINUTES`) and refresh credentials expire after seven days
+(`JWT_REFRESH_TOKEN_DAYS`). JWT issuer/audience can be configured with
+`JWT_ISSUER` and `JWT_AUDIENCE`. Production startup fails when `JWT_SECRET`
+is missing. Refresh credentials are generated with 256 bits of randomness,
+SHA-256 hashed before database storage, and rotated transactionally.
+
+Example:
+
+```powershell
+$env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$env:DB_USERNAME = "jobflow_app"
+$env:DB_PASSWORD = "your_local_password"
+$env:JOBFLOW_PROFILE = "mysql"
+.\mvnw.cmd spring-boot:run
+```
 
 ## Relational database practice
 

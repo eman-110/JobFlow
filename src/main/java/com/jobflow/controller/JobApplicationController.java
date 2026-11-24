@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.net.URI;
 import java.security.Principal;
@@ -26,9 +27,14 @@ public class JobApplicationController {
     @PostMapping("/{jobId}")
     public ResponseEntity<ApplicationResponse> apply(
             @PathVariable Integer jobId,
-            Principal principal) {
-        ApplicationEntity application = applications.applyForAuthenticatedUser(
-                principal.getName(), jobId);
+            Jwt principal) {
+        Integer userId;
+        try {
+            userId = Integer.valueOf(principal.getSubject());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Authenticated subject is invalid.");
+        }
+        ApplicationEntity application = applications.applyForAuthenticatedUserId(userId, jobId);
         return ResponseEntity.created(URI.create("/api/applications/" + application.getId()))
                 .body(ApplicationResponse.from(application));
     }

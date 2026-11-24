@@ -47,8 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -455,8 +455,8 @@ class JobJpaRepositoryIntegrationTest {
         JobEntity job = saveJob("Authenticated Applicant Engineer", "175000.00");
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
-                        .with(httpBasic(user.getEmail(), "user-password"))
-                        .with(csrf()))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
+                        )
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.jobId").value(job.getId()))
                 .andExpect(jsonPath("$.status").value("APPLIED"));
@@ -472,8 +472,8 @@ class JobJpaRepositoryIntegrationTest {
 
         mockMvc.perform(post("/api/applications/{jobId}", job.getId())
                         .param("userId", otherUser.getId().toString())
-                        .with(httpBasic(authenticatedUser.getEmail(), "user-password"))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
+                        
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":%d}".formatted(otherUser.getId())))
                 .andExpect(status().isCreated())

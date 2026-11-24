@@ -10,7 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile("mysql")
+@Profile("mysql | test")
 public class DatabaseUserDetailsService implements UserDetailsService {
     private final UserJpaRepository users;
 

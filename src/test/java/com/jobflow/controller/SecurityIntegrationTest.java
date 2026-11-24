@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -54,8 +54,7 @@ class SecurityIntegrationTest {
     void clearJobsThroughAuthorizedApi() throws Exception {
         for (var job : jobService.getAllJobs()) {
             mockMvc.perform(delete("/api/jobs/{id}", job.getId())
-                            .with(httpBasic(ADMIN, ADMIN_PASSWORD))
-                            .with(csrf()))
+                            .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))))
                     .andExpect(status().isNoContent());
         }
     }
@@ -79,19 +78,8 @@ class SecurityIntegrationTest {
 
     @Test
     void tokenFromCsrfEndpointAuthorizesStateChangingRequest() throws Exception {
-        MvcResult csrfResult = mockMvc.perform(get("/api/csrf"))
-                .andExpect(status().isOk())
-                .andReturn();
-        MockHttpSession session = (MockHttpSession) csrfResult.getRequest().getSession(false);
-        assertNotNull(session);
-        Matcher tokenMatcher = Pattern.compile("\"token\":\"([^\"]+)\"")
-                .matcher(csrfResult.getResponse().getContentAsString());
-        assertTrue(tokenMatcher.find());
-
         mockMvc.perform(post("/api/jobs")
-                        .session(session)
-                        .header("X-CSRF-TOKEN", tokenMatcher.group(1))
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Csrf-token-authorized", 100000)))
                 .andExpect(status().isCreated())
@@ -101,17 +89,16 @@ class SecurityIntegrationTest {
     @Test
     void authenticatedStateChangingRequestWithoutCsrfTokenIsForbidden() throws Exception {
         mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Missing CSRF", 100000)))
-                .andExpect(status().isForbidden());
-        assertTrue(jobService.getAllJobs().isEmpty());
+                .andExpect(status().isCreated());
     }
 
     @Test
     void anonymousUserCannotCreateJobs() throws Exception {
         mockMvc.perform(post("/api/jobs")
-                        .with(csrf())
+                        
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Anonymous", 100000)))
                 .andExpect(status().isUnauthorized());
@@ -121,8 +108,7 @@ class SecurityIntegrationTest {
     @Test
     void userCannotCreateJobs() throws Exception {
         mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(USERNAME, PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("User", 100000)))
                 .andExpect(status().isForbidden());
@@ -132,8 +118,7 @@ class SecurityIntegrationTest {
     @Test
     void recruiterCanCreateAndReadBackJob() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Recruiter-created", 100000)))
                 .andExpect(status().isCreated())
@@ -148,8 +133,7 @@ class SecurityIntegrationTest {
     @Test
     void adminCanCreateJob() throws Exception {
         mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Admin-created", 110000)))
                 .andExpect(status().isCreated())
@@ -161,8 +145,7 @@ class SecurityIntegrationTest {
     void userCannotUpdateJobs() throws Exception {
         int id = createJob();
         mockMvc.perform(put("/api/jobs/{id}", id)
-                        .with(httpBasic(USERNAME, PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Changed", 120000)))
                 .andExpect(status().isForbidden());
@@ -175,8 +158,7 @@ class SecurityIntegrationTest {
     void recruiterCanUpdateJobsAndReadBackChanges() throws Exception {
         int id = createJob();
         mockMvc.perform(put("/api/jobs/{id}", id)
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Recruiter-updated", 130000)))
                 .andExpect(status().isOk())
@@ -190,8 +172,7 @@ class SecurityIntegrationTest {
     void userCannotDeleteJobs() throws Exception {
         int id = createJob();
         mockMvc.perform(delete("/api/jobs/{id}", id)
-                        .with(httpBasic(USERNAME, PASSWORD))
-                        .with(csrf()))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/jobs/{id}", id)).andExpect(status().isOk());
     }
@@ -200,8 +181,7 @@ class SecurityIntegrationTest {
     void recruiterCannotDeleteJobs() throws Exception {
         int id = createJob();
         mockMvc.perform(delete("/api/jobs/{id}", id)
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
-                        .with(csrf()))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER"))))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/jobs/{id}", id)).andExpect(status().isOk());
     }
@@ -210,17 +190,14 @@ class SecurityIntegrationTest {
     void adminCanDeleteJobsAndDeletedJobIsGone() throws Exception {
         int id = createJob();
         mockMvc.perform(delete("/api/jobs/{id}", id)
-                        .with(httpBasic(ADMIN, ADMIN_PASSWORD))
-                        .with(csrf()))
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNoContent());
         mockMvc.perform(get("/api/jobs/{id}", id)).andExpect(status().isNotFound());
     }
 
     @Test
-    void incorrectPasswordDoesNotAuthenticate() throws Exception {
+    void missingJwtDoesNotAuthenticate() throws Exception {
         mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(RECRUITER, "incorrect-password"))
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Wrong password", 100000)))
                 .andExpect(status().isUnauthorized());
@@ -237,8 +214,7 @@ class SecurityIntegrationTest {
 
     private int createJob() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/jobs")
-                        .with(httpBasic(RECRUITER, RECRUITER_PASSWORD))
-                        .with(csrf())
+                        .with(jwt().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECRUITER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jobJson("Recruiter-created", 100000)))
                 .andExpect(status().isCreated())

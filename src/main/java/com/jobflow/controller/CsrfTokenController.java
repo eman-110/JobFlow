@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class CsrfTokenController {
     @GetMapping("/api/csrf")
     public CsrfTokenResponse getCsrfToken(CsrfToken csrfToken) {
-        return new CsrfTokenResponse(csrfToken.getHeaderName(), csrfToken.getToken());
+        // Bearer authentication is stateless and is not vulnerable to browser-cookie
+        // CSRF. This endpoint remains as a compatibility notice for older clients.
+        return new CsrfTokenResponse("X-CSRF-TOKEN", "disabled-for-bearer-api");
     }
 }

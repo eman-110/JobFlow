@@ -49,6 +49,16 @@ public class JobApplicationService {
         return createApplication(user, jobId);
     }
 
+    @PreAuthorize("hasRole('USER')")
+    public ApplicationEntity applyForAuthenticatedUserId(Integer userId, Integer jobId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Authenticated user ID must be positive.");
+        }
+        UserEntity user = users.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user does not exist."));
+        return createApplication(user, jobId);
+    }
+
     private ApplicationEntity createApplication(UserEntity user, Integer jobId) {
         if (jobId == null || jobId <= 0) {
             throw new IllegalArgumentException("Job ID must be positive.");
