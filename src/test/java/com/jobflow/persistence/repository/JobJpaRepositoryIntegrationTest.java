@@ -213,6 +213,25 @@ class JobJpaRepositoryIntegrationTest {
     }
 
     @Test
+    void expiredOauthExchangeCannotBeConsumed() {
+        UserEntity user = saveUser();
+        String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String code = oauthExchanges.issue(user, "integration-client", pkceChallenge(verifier));
+        String credentialHash = oauthLoginExchanges.findAll().getFirst().getCredentialHash();
+        jdbcTemplate.update("UPDATE oauth_login_exchanges "
+                        + "SET expires_at = DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 SECOND) "
+                        + "WHERE credential_hash = ?",
+                credentialHash);
+
+        assertThrows(ExchangeException.class,
+                () -> oauthExchanges.consume(code, "integration-client", verifier));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM oauth_login_exchanges "
+                        + "WHERE credential_hash = ? AND consumed_at IS NULL",
+                Integer.class, credentialHash));
+    }
+
+    @Test
     void concurrentOauthExchangeRequestsConsumeCredentialAtMostOnce() throws Exception {
         UserEntity user = saveUser();
         String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";

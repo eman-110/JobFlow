@@ -51,3 +51,16 @@ jobs:
           if counts != {"tests": 40, "skipped": 0, "failures": 0, "errors": 0}:
               sys.exit("Expected all 40 MySQL integration tests to pass without skips.")
           PY
+
+      - name: Upload Maven reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-reports-${{ github.run_id }}
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+            target/site/jacoco/
+            target/jacoco.exec
+          if-no-files-found: warn
+          retention-days: 7
