@@ -17,12 +17,16 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.List;
 
 @Configuration
 public class JwtConfig {
@@ -49,20 +53,30 @@ public class JwtConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        JwtClaimValidator<java.util.List<String>> audienceValidator =
-                new JwtClaimValidator<>("aud", audiences ->
-                        audiences != null && audiences.contains(audience));
-        JwtClaimValidator<String> subjectValidator =
-                new JwtClaimValidator<>("sub", subject -> subject != null && !subject.isBlank());
-        JwtClaimValidator<String> typeValidator =
-                new JwtClaimValidator<>("token_type", type -> "access".equals(type));
-        JwtClaimValidator<String> roleValidator =
-                new JwtClaimValidator<>("role", role ->
-                        java.util.List.of("USER", "RECRUITER", "ADMIN").contains(role));
+        OAuth2TokenValidator<Jwt> requiredClaimsValidator = jwt -> {
+            Object role = jwt.getClaims().get("role");
+            if (jwt.getExpiresAt() == null || !validSubject(jwt.getSubject())
+                    || !(role instanceof String roleName)
+                    || !List.of("USER", "RECRUITER", "ADMIN").contains(roleName)
+                    || !"access".equals(jwt.getClaims().get("token_type"))
+                    || jwt.getAudience() == null || !jwt.getAudience().contains(audience)) {
+                return OAuth2TokenValidatorResult.failure(
+                        new OAuth2Error("invalid_token", "Required JWT claims are missing or invalid.", null));
+            }
+            return OAuth2TokenValidatorResult.success();
+        };
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(issuer),
-                audienceValidator, subjectValidator, typeValidator, roleValidator));
+                JwtValidators.createDefaultWithIssuer(issuer), requiredClaimsValidator));
         return decoder;
+    }
+
+    private static boolean validSubject(String subject) {
+        if (subject == null || !subject.matches("[0-9]+")) return false;
+        try {
+            return Integer.parseInt(subject) > 0;
+        } catch (NumberFormatException exception) {
+            return false;
+        }
     }
 
     byte[] resolveSecret(String configuredSecret, Environment environment) {

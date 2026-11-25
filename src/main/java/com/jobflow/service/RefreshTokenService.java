@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -22,6 +24,7 @@ import java.util.UUID;
 @Service
 @Profile("mysql | test")
 public class RefreshTokenService {
+    private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
     private final java.util.Optional<RefreshTokenJpaRepository> repository;
     private final SecureRandom random = new SecureRandom();
     private final long refreshDays;
@@ -50,10 +53,16 @@ public class RefreshTokenService {
     public RotatedUser rotate(String credential) {
         RefreshTokenJpaRepository repository = this.repository.orElseThrow(
                 () -> new RefreshTokenException("Refresh credentials are unavailable."));
-        RotationOutcome outcome = transactions.execute(status -> rotateWithinTransaction(
-                repository, hash(credential)));
+        RotationOutcome outcome;
+        try {
+            outcome = transactions.execute(status -> rotateWithinTransaction(repository, hash(credential)));
+        } catch (RefreshTokenException exception) {
+            log.warn("audit event=refresh_failure");
+            throw exception;
+        }
         if (outcome.reusedFamilyId() != null) {
             transactions.executeWithoutResult(status -> revokeFamily(repository, outcome.reusedFamilyId()));
+            log.warn("audit event=refresh_token_reuse_detected");
             throw new RefreshTokenException("Refresh credential reuse is not allowed.");
         }
         return new RotatedUser(outcome.user(), outcome.replacement());

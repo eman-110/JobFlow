@@ -48,6 +48,6 @@ jobs:
               for name in ("tests", "skipped", "failures", "errors")
           }
           print(f"MySQL integration tests: {counts}")
-          if counts != {"tests": 32, "skipped": 0, "failures": 0, "errors": 0}:
-              sys.exit("Expected all 32 MySQL integration tests to pass without skips.")
+          if counts != {"tests": 40, "skipped": 0, "failures": 0, "errors": 0}:
+              sys.exit("Expected all 40 MySQL integration tests to pass without skips.")
           PY

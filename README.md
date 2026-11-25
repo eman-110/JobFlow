@@ -144,7 +144,7 @@ boundaries. The API tests use the in-memory repository and do not require MySQL.
 Security tests verify public reads, role-restricted job mutations, password
 verification, and application ownership. The MySQL repository integration
 tests use Testcontainers and require Docker; CI verifies Docker availability
-and fails if any of the 32 integration tests are skipped.
+and fails if any of the 40 integration tests are skipped.
 
 Generate and review the JaCoCo coverage report:
 
@@ -215,8 +215,8 @@ Run all tests with `.\mvnw.cmd clean verify`. Testcontainers launches a
 disposable MySQL 8.4 instance for the repository suite. To run only those tests,
 use `.\mvnw.cmd -Dtest=JobJpaRepositoryIntegrationTest test`; Docker is required
 for this suite. The integration suite verifies generated IDs, CRUD, derived
-queries, JPQL, database constraints, pagination and sorting, and reads saved
-data through a separate persistence context.
+queries, JPQL, database constraints, pagination and sorting, external identity
+persistence, and one-time OAuth exchange replay/concurrency protections.
 
 After startup, check the API and persistence manually:
 
@@ -265,7 +265,8 @@ authorization rules:
 | Operation | Access |
 | --- | --- |
 | `GET /api/jobs/**`, `/api/info`, `/hello` | Public |
-| `POST /api/auth/register`, `/login`, `/refresh`, `/logout` | Public |
+| `POST /api/auth/register`, `/login`, `/refresh`, `/logout`, `/oauth/exchange` | Public |
+| `POST /api/auth/oauth/link/start` | Authenticated |
 | `GET /api/auth/me` | Authenticated |
 | `POST`, `PUT`, or `PATCH /api/jobs/**` | `RECRUITER` or `ADMIN` |
 | `DELETE /api/jobs/**` | `ADMIN` |
@@ -299,9 +300,11 @@ fails closed because it has no production identity provider configured; wire
 an approved production identity provider before enabling authenticated
 operations there.
 
-CSRF is disabled because this API uses bearer credentials only and creates no
-authentication cookie or HTTP session. State-changing browser credential
-forms are not supported. `/api/csrf` remains only as a compatibility endpoint
+CSRF is disabled only on the stateless `/api/**` bearer-token chain, which
+never reads authentication from cookies. The separate browser OAuth chain
+retains Spring Security's CSRF protection and short-lived session for the
+authorization callback and OAuth `state`; OIDC `nonce` and token validation
+are handled by Spring Security. `/api/csrf` remains a compatibility endpoint
 and does not enable cookie authentication.
 
 Set `JWT_SECRET` to a Base64-encoded random secret of at least 32 decoded
@@ -313,6 +316,77 @@ only test configuration supplies an explicit test-only secret. Refresh
 credentials are generated with 256 bits of randomness, SHA-256 hashed before
 database storage, and rotated transactionally. Reuse of a rotated credential
 revokes every token in its family before returning an unauthorized response.
+
+### Optional Google OpenID Connect
+
+Google sign-in is opt-in. Keep the existing profile configuration for normal
+applications; enable it only alongside MySQL, for example:
+
+```powershell
+$env:JOBFLOW_PROFILE = "mysql,oauth"
+$env:GOOGLE_CLIENT_ID = "your-google-oauth-client-id"
+$env:GOOGLE_CLIENT_SECRET = "your-google-oauth-client-secret"
+$env:OAUTH_APP_CLIENT_ID = "jobflow-web"
+$env:OAUTH_AUTHORIZATION_BASE_URL = "http://localhost:8080"
+$env:OAUTH_SUCCESS_REDIRECT_URI = "http://localhost:3000/auth/callback"
+$env:CORS_ALLOWED_ORIGINS = "http://localhost:3000"
+.\mvnw.cmd spring-boot:run
+```
+
+In Google Cloud, register the backend callback URI
+`http://localhost:8080/login/oauth2/code/google` (use HTTPS outside local
+development). Configure `OAUTH_SUCCESS_REDIRECT_URI` to a trusted frontend
+callback. Redirects are fixed by server configuration, not by an OAuth request
+parameter. Never commit Google secrets. With the `oauth` profile inactive,
+Google credentials and OAuth client beans are not required.
+
+The browser authorization chain is separate from the stateless REST resource
+server. It uses Spring Security's authorization-code state handling, OIDC
+nonce/signature/issuer/audience validation, and PKCE for the provider token
+exchange. The frontend creates an independent PKCE verifier/challenge and
+starts at `/oauth2/authorization/google?client_id=jobflow-web&code_challenge=<S256-challenge>`.
+After successful provider validation, JobFlow redirects to the configured
+frontend with only a short-lived, single-use `code` (never a JobFlow access or
+refresh token). Exchange it with:
+
+```http
+POST /api/auth/oauth/exchange
+Content-Type: application/json
+
+{"code":"<one-time-code>","clientId":"jobflow-web","codeVerifier":"<pkce-verifier>"}
+```
+
+The code expires after 90 seconds. V4 stores only its SHA-256 hash, the client
+identifier, and the PKCE challenge; a conditional database update atomically
+consumes it before the existing access-token and refresh-token services issue
+the normal JobFlow pair. A wrong client, verifier, expired code, or replay is
+rejected.
+
+New external-only accounts require a provider-verified email, receive only the
+`USER` role, and have a null local password hash, so password login cannot
+authenticate them. A matching email never causes automatic account linking.
+To explicitly link an identity, an already authenticated local user posts a
+PKCE challenge to `POST /api/auth/oauth/link/start` with its bearer token,
+then completes a new Google flow. The one-use link intent is bound to the
+authenticated database account and verifier; the provider is asked for fresh
+authentication, and missing/stale `auth_time` fails closed. Existing account
+ownership, issuer, subject, verified email and uniqueness are checked before
+the identity is attached.
+
+Flyway V4 adds `external_identities`, `oauth_login_exchanges`, and
+`oauth_link_intents`; it does not rewrite V1–V3. Login/register/refresh rate
+limits default to 10/5/30 requests per minute per source address and return
+HTTP 429 with `Retry-After`. They are in-memory and per application instance;
+use an external/distributed limiter for multi-instance deployments. CORS
+origins are explicitly configurable with `CORS_ALLOWED_ORIGINS`; production
+defaults to no cross-origin origins. REST responses include restrictive
+security headers. Authentication audit events record event types only and
+never credential values.
+
+OAuth tests use controlled OIDC claim objects and never call Google or require
+production credentials. The MySQL suite remains Docker/Testcontainers based.
+GitHub OAuth, Redis-backed distributed rate limiting, MFA/TOTP, and a
+monitoring dashboard are not included in this lesson implementation.
 
 Example:
 
@@ -361,7 +435,7 @@ The MySQL Testcontainers integration suite verifies relationship navigation,
 duplicate protection, transaction rollback, and the SQL statement reduction
 from a company fetch join. It also checks database-backed authentication and
 that application submissions use the authenticated user's identity. Run
-`.\mvnw.cmd clean verify`; CI requires all 32 MySQL integration tests to pass
+`.\mvnw.cmd clean verify`; CI requires all 40 MySQL integration tests to pass
 without skips.
 
 `JobEntityMapper` maps domain jobs and persisted records; `JpaJobStore` resolves

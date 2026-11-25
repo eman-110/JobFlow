@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.jobflow.controller.AuthController;
 import com.jobflow.service.RefreshTokenService;
+import com.jobflow.service.OAuthLoginExchangeService;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 
@@ -42,6 +43,18 @@ public class ApiExceptionHandler {
     @ExceptionHandler(RefreshTokenService.RefreshTokenException.class)
     public ResponseEntity<ApiErrorResponse> handleRefreshFailure(RefreshTokenService.RefreshTokenException exception) {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), Map.of());
+    }
+
+    @ExceptionHandler(OAuthLoginExchangeService.ExchangeException.class)
+    public ResponseEntity<ApiErrorResponse> handleOAuthExchangeFailure(
+            OAuthLoginExchangeService.ExchangeException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), Map.of());
+    }
+
+    @ExceptionHandler(org.springframework.security.oauth2.core.OAuth2AuthenticationException.class)
+    public ResponseEntity<ApiErrorResponse> handleOAuthAuthenticationFailure(
+            org.springframework.security.oauth2.core.OAuth2AuthenticationException exception) {
+        return error(HttpStatus.UNAUTHORIZED, "External authentication failed.", Map.of());
     }
 
     @ExceptionHandler(BadCredentialsException.class)

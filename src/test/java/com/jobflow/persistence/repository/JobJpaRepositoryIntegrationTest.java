@@ -6,11 +6,18 @@ import com.jobflow.persistence.entity.CompanyEntity;
 import com.jobflow.persistence.entity.JobEntity;
 import com.jobflow.persistence.entity.UserEntity;
 import com.jobflow.persistence.entity.UserRole;
+import com.jobflow.persistence.entity.ExternalIdentityEntity;
+import com.jobflow.persistence.repository.ExternalIdentityJpaRepository;
+import com.jobflow.persistence.repository.OAuthLoginExchangeJpaRepository;
+import com.jobflow.persistence.repository.OAuthLinkIntentJpaRepository;
 import com.jobflow.model.Job;
 import com.jobflow.repository.JobStore;
 import com.jobflow.service.JobApplicationService;
 import com.jobflow.service.RefreshTokenService;
 import com.jobflow.service.RefreshTokenService.RefreshTokenException;
+import com.jobflow.service.OAuthLoginExchangeService;
+import com.jobflow.service.OAuthLoginExchangeService.ExchangeException;
+import com.jobflow.service.OAuthLinkIntentService;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -104,6 +112,21 @@ class JobJpaRepositoryIntegrationTest {
     private RefreshTokenJpaRepository refreshTokenRepository;
 
     @Autowired
+    private ExternalIdentityJpaRepository externalIdentities;
+
+    @Autowired
+    private OAuthLoginExchangeJpaRepository oauthLoginExchanges;
+
+    @Autowired
+    private OAuthLinkIntentJpaRepository oauthLinkIntents;
+
+    @Autowired
+    private OAuthLoginExchangeService oauthExchanges;
+
+    @Autowired
+    private OAuthLinkIntentService oauthLinkService;
+
+    @Autowired
     private JobStore jobStore;
 
     @Autowired
@@ -129,11 +152,135 @@ class JobJpaRepositoryIntegrationTest {
 
     @BeforeEach
     void clearDatabase() {
+        oauthLinkIntents.deleteAll();
+        oauthLoginExchanges.deleteAll();
+        externalIdentities.deleteAll();
         refreshTokenRepository.deleteAll();
         applications.deleteAll();
         jobs.deleteAll();
         users.deleteAll();
         companies.deleteAll();
+    }
+
+    @Test
+    void persistsAndResolvesExternalIdentityByIssuerAndSubject() {
+        UserEntity user = saveUser();
+        ExternalIdentityEntity saved = externalIdentities.saveAndFlush(new ExternalIdentityEntity(
+                user, "https://accounts.google.com", "stable-google-subject"));
+
+        assertNotNull(saved.getId());
+        assertEquals(user.getId(), externalIdentities.findByIssuerAndSubject(
+                "https://accounts.google.com", "stable-google-subject").orElseThrow().getUser().getId());
+    }
+
+    @Test
+    void uniqueIssuerAndSubjectCannotBeLinkedToTwoLocalAccounts() {
+        UserEntity first = saveUser();
+        UserEntity second = saveUser();
+        externalIdentities.saveAndFlush(new ExternalIdentityEntity(
+                first, "https://accounts.google.com", "unique-subject"));
+
+        assertThrows(DataIntegrityViolationException.class, () -> externalIdentities.saveAndFlush(
+                new ExternalIdentityEntity(second, "https://accounts.google.com", "unique-subject")));
+    }
+
+    @Test
+    void deletingLocalAccountCascadesItsExternalIdentity() {
+        UserEntity user = saveUser();
+        externalIdentities.saveAndFlush(new ExternalIdentityEntity(
+                user, "https://accounts.google.com", "delete-subject"));
+
+        users.deleteById(user.getId());
+        users.flush();
+
+        assertTrue(externalIdentities.findByIssuerAndSubject(
+                "https://accounts.google.com", "delete-subject").isEmpty());
+    }
+
+    @Test
+    void oauthExchangeStoresOnlyHashAndEnforcesSingleUse() {
+        UserEntity user = saveUser();
+        String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String challenge = pkceChallenge(verifier);
+        String code = oauthExchanges.issue(user, "integration-client", challenge);
+
+        var stored = oauthLoginExchanges.findAll().getFirst();
+        assertNotEquals(code, stored.getCredentialHash());
+        assertEquals(64, stored.getCredentialHash().length());
+        assertEquals(user.getId(), oauthExchanges.consume(code, "integration-client", verifier).getId());
+        assertThrows(ExchangeException.class,
+                () -> oauthExchanges.consume(code, "integration-client", verifier));
+    }
+
+    @Test
+    void concurrentOauthExchangeRequestsConsumeCredentialAtMostOnce() throws Exception {
+        UserEntity user = saveUser();
+        String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String code = oauthExchanges.issue(user, "integration-client", pkceChallenge(verifier));
+        var executor = Executors.newFixedThreadPool(2);
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        try {
+            var first = executor.submit(() -> consumeExchange(code, verifier, ready, start));
+            var second = executor.submit(() -> consumeExchange(code, verifier, ready, start));
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            assertEquals(1, first.get(10, TimeUnit.SECONDS) + second.get(10, TimeUnit.SECONDS));
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void oauthLinkIntentIsHashedAndConsumedOnlyOnce() {
+        UserEntity user = saveUser();
+        String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String intent = oauthLinkService.issue(user, "integration-client", pkceChallenge(verifier));
+
+        var stored = oauthLinkIntents.findAll().getFirst();
+        assertNotEquals(intent, stored.getIntentHash());
+        assertEquals(64, stored.getIntentHash().length());
+        assertEquals(user.getId(), oauthLinkService.consume(
+                intent, "integration-client", pkceChallenge(verifier)));
+        assertThrows(ExchangeException.class, () -> oauthLinkService.consume(
+                intent, "integration-client", pkceChallenge(verifier)));
+    }
+
+    @Test
+    void oauthLinkIntentRejectsWrongClientOrChallengeWithoutConsumingIt() {
+        UserEntity user = saveUser();
+        String verifier = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String intent = oauthLinkService.issue(user, "integration-client", pkceChallenge(verifier));
+
+        assertThrows(ExchangeException.class, () -> oauthLinkService.consume(
+                intent, "wrong-client", pkceChallenge(verifier)));
+        assertThrows(ExchangeException.class, () -> oauthLinkService.consume(
+                intent, "integration-client", pkceChallenge(verifier + "wrong")));
+        assertEquals(user.getId(), oauthLinkService.consume(
+                intent, "integration-client", pkceChallenge(verifier)));
+    }
+
+    private int consumeExchange(String code, String verifier, CountDownLatch ready, CountDownLatch start)
+            throws Exception {
+        ready.countDown();
+        if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Start signal timed out.");
+        try {
+            oauthExchanges.consume(code, "integration-client", verifier);
+            return 1;
+        } catch (ExchangeException rejected) {
+            return 0;
+        }
+    }
+
+    private static String pkceChallenge(String verifier) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(verifier.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     @Test
@@ -588,7 +735,7 @@ class JobJpaRepositoryIntegrationTest {
         JobEntity job = saveJob("Method Security Engineer", "185000.00");
 
         assertThrows(AccessDeniedException.class,
-                () -> applicationService.applyForAuthenticatedUser(user.getEmail(), job.getId()));
+                () -> applicationService.applyForAuthenticatedUserId(user.getId(), job.getId()));
         assertFalse(applications.existsByUser_IdAndJob_Id(user.getId(), job.getId()));
     }
 

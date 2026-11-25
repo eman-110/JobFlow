@@ -44,16 +44,6 @@ public class JobApplicationService {
     }
 
     @PreAuthorize("hasRole('USER')")
-    public ApplicationEntity applyForAuthenticatedUser(String email, Integer jobId) {
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Authenticated user email is required.");
-        }
-        UserEntity user = users.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalArgumentException("Authenticated user does not exist."));
-        return createApplication(user, jobId);
-    }
-
-    @PreAuthorize("hasRole('USER')")
     public ApplicationEntity applyForAuthenticatedUserId(Integer userId, Integer jobId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("Authenticated user ID must be positive.");

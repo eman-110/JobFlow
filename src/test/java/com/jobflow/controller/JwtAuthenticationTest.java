@@ -150,6 +150,64 @@ class JwtAuthenticationTest {
     }
 
     @Test
+    void missingExpirationClaimIsRejected() throws Exception {
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("jobflow").audience(List.of("jobflow-api")).subject("1")
+                .issuedAt(Instant.now()).claim("token_type", "access").claim("role", "USER").build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).keyId("jobflow-hs256").build(), claims)).getTokenValue();
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void rejectsNonpositiveNonnumericAndOverflowSubjects() throws Exception {
+        for (String subject : List.of("0", "-1", "abc", "999999999999999999999")) {
+            assertClaimRejected(claims(Instant.now(), Instant.now().plusSeconds(900),
+                    "jobflow", "jobflow-api", subject));
+        }
+    }
+
+    @Test
+    void malformedRoleClaimIsRejectedWithoutAuthenticationFailureLeak() throws Exception {
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("jobflow").audience(List.of("jobflow-api")).subject("1")
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(900))
+                .claim("token_type", "access").claim("role", 17).build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).keyId("jobflow-hs256").build(), claims)).getTokenValue();
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void corsAllowsOnlyConfiguredOriginsWithoutCookies() throws Exception {
+        mockMvc.perform(get("/api/jobs").header("Origin", "http://localhost:3000"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().doesNotExist("Access-Control-Allow-Credentials"));
+        mockMvc.perform(get("/api/jobs").header("Origin", "https://unapproved.example"))
+                .andExpect(status().isForbidden())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().doesNotExist("Access-Control-Allow-Origin"));
+    }
+
+    @Test
+    void securityResponseHeadersArePresentOnRestResponses() throws Exception {
+        mockMvc.perform(get("/api/info"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("X-Frame-Options", "DENY"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Content-Security-Policy",
+                                "default-src 'none'; frame-ancestors 'none'"));
+    }
+
+    @Test
     void refreshRotationReuseAndLogoutAreEnforced() throws Exception {
         register("rotate@example.com");
         MvcResult login = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
