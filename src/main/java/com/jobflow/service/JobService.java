@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -90,7 +91,7 @@ public class JobService {
 
     @Cacheable(cacheNames = "jobs", key = "'all'")
     public List<Job> getAllJobs() {
-        return repository.findAll();
+        return new ArrayList<>(repository.findAll());
     }
 
     public Page<Job> getJobsPage(int page, int size, String sortBy, String direction) {
