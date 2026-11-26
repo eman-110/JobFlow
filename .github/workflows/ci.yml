@@ -11,6 +11,17 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,8 +59,8 @@ jobs:
               for name in ("tests", "skipped", "failures", "errors")
           }
           print(f"MySQL integration tests: {counts}")
-          if counts != {"tests": 40, "skipped": 0, "failures": 0, "errors": 0}:
-              sys.exit("Expected all 40 MySQL integration tests to pass without skips.")
+          if counts != {"tests": 42, "skipped": 0, "failures": 0, "errors": 0}:
+              sys.exit("Expected all 42 MySQL integration tests to pass without skips.")
           PY
 
       - name: Upload Maven reports on failure

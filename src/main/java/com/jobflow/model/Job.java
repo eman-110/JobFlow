@@ -1,5 +1,8 @@
 package com.jobflow.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Job {
@@ -17,6 +20,16 @@ public class Job {
     }
 
     public Job(int id, String title, String company, String location, double salary) {
+        this(id, title, company, location, salary, JobStatus.SAVED);
+    }
+
+    @JsonCreator
+    public Job(@JsonProperty("id") int id,
+               @JsonProperty("title") String title,
+               @JsonProperty("company") String company,
+               @JsonProperty("location") String location,
+               @JsonProperty("salary") double salary,
+               @JsonProperty("status") JobStatus status) {
         if (salary < 0) {
             throw new IllegalArgumentException("Salary cannot be negative.");
         }
@@ -27,6 +40,7 @@ public class Job {
         this.company = company;
         this.location = location;
         this.salary = salary;
+        this.status = status == null ? JobStatus.SAVED : status;
     }
 
     public int getId() {

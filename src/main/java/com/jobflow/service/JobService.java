@@ -6,6 +6,9 @@ import com.jobflow.model.JobStatus;
 import com.jobflow.exception.JobNotFoundException;
 import com.jobflow.notification.NotificationService;
 import com.jobflow.repository.JobStore;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -58,6 +61,10 @@ public class JobService {
                 properties.isNotificationsEnabled());
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0.id")
+    })
     public void addJob(Job job) {
         ensureCapacity();
         logger.debug("Adding job with ID {}", job.getId());
@@ -65,6 +72,10 @@ public class JobService {
         logger.info("Job added: {}", job.getTitle());
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#result.id")
+    })
     public Job createJob(String title, String company, String location, double salary) {
         validateRequiredText(title, "title");
         validateRequiredText(company, "company");
@@ -77,6 +88,7 @@ public class JobService {
         return job;
     }
 
+    @Cacheable(cacheNames = "jobs", key = "'all'")
     public List<Job> getAllJobs() {
         return repository.findAll();
     }
@@ -97,11 +109,16 @@ public class JobService {
         return repository.findById(id);
     }
 
+    @Cacheable(cacheNames = "jobDetails", key = "#p0")
     public Job getJobById(int id) {
         return findJobById(id)
                 .orElseThrow(() -> new JobNotFoundException("Job with ID " + id + " was not found."));
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+    })
     public Job updateJob(int id, String title, String company, String location, double salary) {
         validateRequiredText(title, "title");
         validateRequiredText(company, "company");
@@ -112,6 +129,10 @@ public class JobService {
         return job;
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+    })
     public Job updateSalary(int id, double salary) {
         Job job = getJobById(id);
         job.updateSalary(salary);
@@ -119,6 +140,10 @@ public class JobService {
         return job;
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+    })
     public Job updateStatus(int id, JobStatus status) {
         Job job = getJobById(id);
         job.updateStatus(status);
@@ -126,6 +151,10 @@ public class JobService {
         return job;
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "jobs", allEntries = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+    })
     public void deleteJob(int id) {
         if (!repository.deleteById(id)) {
             logger.warn("Delete failed: job with ID {} was not found", id);

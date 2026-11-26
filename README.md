@@ -23,6 +23,7 @@ JobFlow is a Java application for managing and exploring job listings. It demons
 - Protect job mutations and application submissions with role-based Spring
   Security, BCrypt password hashing, and MySQL-backed user credentials.
 - Use signed HS256 JWT access tokens and rotating opaque refresh credentials.
+- Cache public job listings and job details in Redis when using the MySQL profile.
 
 ## Data structures and algorithms
 
@@ -144,7 +145,7 @@ boundaries. The API tests use the in-memory repository and do not require MySQL.
 Security tests verify public reads, role-restricted job mutations, password
 verification, and application ownership. The MySQL repository integration
 tests use Testcontainers and require Docker; CI verifies Docker availability
-and fails if any of the 40 integration tests are skipped.
+and fails if any of the 42 integration tests are skipped.
 
 Generate and review the JaCoCo coverage report:
 
@@ -212,11 +213,49 @@ Page numbers are zero-based, sizes are limited to 1–100, and sorting supports
 `id`, `title`, `location`, or `salary`.
 
 Run all tests with `.\mvnw.cmd clean verify`. Testcontainers launches a
-disposable MySQL 8.4 instance for the repository suite. To run only those tests,
-use `.\mvnw.cmd -Dtest=JobJpaRepositoryIntegrationTest test`; Docker is required
-for this suite. The integration suite verifies generated IDs, CRUD, derived
-queries, JPQL, database constraints, pagination and sorting, external identity
-persistence, and one-time OAuth exchange replay/concurrency protections.
+disposable MySQL 8.4 instance for the repository suite. The MySQL integration
+suite also requires Redis; CI starts a Redis 7 service for it. To run only those
+tests, use `.\mvnw.cmd -Dtest=JobJpaRepositoryIntegrationTest test`; Docker and
+a local Redis server are required. The suite verifies generated IDs, CRUD,
+derived queries, JPQL, database constraints, pagination and sorting, external
+identity persistence, one-time OAuth exchange replay/concurrency protections,
+and Redis cache hits, eviction, expiration, and database consistency.
+
+## Redis caching
+
+Redis caching is enabled only with the `mysql` profile. The `dev` and `test`
+profiles do not connect to Redis and continue to work without a Redis server.
+Start a local Redis 7 container from PowerShell:
+
+```powershell
+docker run --name jobflow-redis -d -p 6379:6379 redis:7-alpine
+docker exec jobflow-redis redis-cli ping
+```
+
+The second command should return `PONG`. Configure Redis with these optional
+environment variables (defaults are suitable only for local development):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `REDIS_HOST` | `localhost` | Redis server host |
+| `REDIS_PORT` | `6379` | Redis server port |
+| `REDIS_PASSWORD` | empty | Password for a password-protected Redis server |
+
+Production Redis should be private-network-only and protected with credentials
+provided through the deployment environment or secret manager; do not commit
+passwords or expose Redis publicly.
+
+The `jobs` cache stores the public `GET /api/jobs` listing, and `jobDetails`
+stores individual public `GET /api/jobs/{id}` results keyed by job ID. Both use
+a five-minute TTL. Successful job creation, update (including salary/status
+updates), and deletion evict the listing cache and the affected detail entry.
+No authentication credentials or private user data are cached.
+
+Run the MySQL integration tests with Docker and Redis available:
+
+```powershell
+.\mvnw.cmd -Dtest=JobJpaRepositoryIntegrationTest test
+```
 
 After startup, check the API and persistence manually:
 

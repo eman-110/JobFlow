@@ -13,6 +13,7 @@ import com.jobflow.persistence.repository.OAuthLinkIntentJpaRepository;
 import com.jobflow.model.Job;
 import com.jobflow.repository.JobStore;
 import com.jobflow.service.JobApplicationService;
+import com.jobflow.service.JobService;
 import com.jobflow.service.RefreshTokenService;
 import com.jobflow.service.RefreshTokenService.RefreshTokenException;
 import com.jobflow.service.OAuthLoginExchangeService;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,6 +48,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -55,6 +58,7 @@ import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -130,6 +134,15 @@ class JobJpaRepositoryIntegrationTest {
     private JobStore jobStore;
 
     @Autowired
+    private JobService jobService;
+
+    @Autowired
+    private CacheManager cacheManager;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
     private JobApplicationService applicationService;
 
     @Autowired
@@ -152,6 +165,8 @@ class JobJpaRepositoryIntegrationTest {
 
     @BeforeEach
     void clearDatabase() {
+        cacheManager.getCache("jobs").clear();
+        cacheManager.getCache("jobDetails").clear();
         oauthLinkIntents.deleteAll();
         oauthLoginExchanges.deleteAll();
         externalIdentities.deleteAll();
@@ -336,6 +351,60 @@ class JobJpaRepositoryIntegrationTest {
         jobs.flush();
 
         assertFalse(jobs.existsById(job.getId()));
+    }
+
+    @Test
+    void cachesJobReadsAndEvictsListingsAndDetailsAfterSuccessfulMutations() {
+        CompanyEntity company = saveCompany();
+        assertTrue(jobService.getAllJobs().isEmpty());
+
+        Job created = jobService.createJob(
+                "Backend Engineer", company.getName(), "Remote", 120000);
+        assertEquals(1, jobService.getAllJobs().size());
+        assertEquals(created.getId(), jobService.getJobById(created.getId()).getId());
+
+        JobEntity changedOutsideService = jobs.findById(created.getId()).orElseThrow();
+        changedOutsideService.setTitle("Changed directly in database");
+        jobs.saveAndFlush(changedOutsideService);
+        assertEquals("Backend Engineer", jobService.getAllJobs().getFirst().getTitle());
+        assertEquals("Backend Engineer", jobService.getJobById(created.getId()).getTitle());
+
+        Job updated = jobService.updateJob(
+                created.getId(), "Updated through service", company.getName(), "Remote", 130000);
+        assertEquals("Updated through service", updated.getTitle());
+        assertEquals("Updated through service", jobService.getAllJobs().getFirst().getTitle());
+        assertEquals("Updated through service", jobService.getJobById(created.getId()).getTitle());
+        assertEquals("Updated through service",
+                jobs.findById(created.getId()).orElseThrow().getTitle());
+
+        jobService.deleteJob(created.getId());
+        assertTrue(jobService.getAllJobs().isEmpty());
+        assertTrue(jobs.findById(created.getId()).isEmpty());
+        assertThrows(com.jobflow.exception.JobNotFoundException.class,
+                () -> jobService.getJobById(created.getId()));
+    }
+
+    @Test
+    void redisCacheEntriesUseFiveMinuteTtlAndReloadAfterExpiration() throws InterruptedException {
+        CompanyEntity company = saveCompany();
+        saveJob(company, "Cached Engineer", "120000.00");
+        assertEquals("Cached Engineer", jobService.getAllJobs().getFirst().getTitle());
+
+        Set<String> keys = redisTemplate.keys("jobs::*");
+        assertNotNull(keys);
+        String cacheKey = keys.stream().findFirst().orElseThrow();
+        long ttlMillis = redisTemplate.getExpire(cacheKey, TimeUnit.MILLISECONDS);
+        assertTrue(ttlMillis > TimeUnit.MINUTES.toMillis(4));
+        assertTrue(ttlMillis <= TimeUnit.MINUTES.toMillis(5));
+
+        JobEntity changedOutsideService = jobs.findAll().getFirst();
+        changedOutsideService.setTitle("Loaded after expiration");
+        jobs.saveAndFlush(changedOutsideService);
+        assertEquals("Cached Engineer", jobService.getAllJobs().getFirst().getTitle());
+
+        assertTrue(redisTemplate.expire(cacheKey, 1, TimeUnit.SECONDS));
+        Thread.sleep(1100);
+        assertEquals("Loaded after expiration", jobService.getAllJobs().getFirst().getTitle());
     }
 
     @Test
