@@ -75,7 +75,7 @@ public class JobService {
 
     @Caching(evict = {
             @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#result.id", beforeInvocation = true)
+            @CacheEvict(cacheNames = "jobDetails", key = "#result.id")
     })
     public Job createJob(String title, String company, String location, double salary) {
         validateRequiredText(title, "title");
