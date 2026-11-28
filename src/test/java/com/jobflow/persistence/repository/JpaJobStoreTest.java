@@ -91,4 +91,17 @@ class JpaJobStoreTest {
         verify(jobs, times(1)).findAllWithCompany();
         verify(companies, never()).findById(anyInt());
     }
+
+    @Test
+    void flushesSavedJobChangesBeforeReturning() {
+        CompanyEntity company = new CompanyEntity(12, "Known Co", null, "US");
+        when(companies.findByName("Known Co")).thenReturn(Optional.of(company));
+        Job job = new Job(73, "Updated Developer", "Known Co", "Remote", 125000);
+
+        store.save(job);
+
+        ArgumentCaptor<JobEntity> entity = ArgumentCaptor.forClass(JobEntity.class);
+        verify(jobs).saveAndFlush(entity.capture());
+        assertEquals("Updated Developer", entity.getValue().getTitle());
+    }
 }

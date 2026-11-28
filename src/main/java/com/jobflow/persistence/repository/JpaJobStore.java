@@ -47,7 +47,7 @@ public class JpaJobStore implements JobStore {
     public void save(Job job) {
         CompanyEntity company = resolveCompany(job.getCompany());
         JobEntity entity = JobEntityMapper.toEntity(job, company);
-        jobs.save(entity);
+        jobs.saveAndFlush(entity);
     }
 
     @Override

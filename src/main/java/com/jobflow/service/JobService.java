@@ -63,8 +63,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#p0.id")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0.id", beforeInvocation = true)
     })
     public void addJob(Job job) {
         ensureCapacity();
@@ -74,8 +74,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#result.id")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#result.id", beforeInvocation = true)
     })
     public Job createJob(String title, String company, String location, double salary) {
         validateRequiredText(title, "title");
@@ -117,8 +117,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0", beforeInvocation = true)
     })
     public Job updateJob(int id, String title, String company, String location, double salary) {
         validateRequiredText(title, "title");
@@ -131,8 +131,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0", beforeInvocation = true)
     })
     public Job updateSalary(int id, double salary) {
         Job job = getJobById(id);
@@ -142,8 +142,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0", beforeInvocation = true)
     })
     public Job updateStatus(int id, JobStatus status) {
         Job job = getJobById(id);
@@ -153,8 +153,8 @@ public class JobService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "jobs", allEntries = true),
-            @CacheEvict(cacheNames = "jobDetails", key = "#p0")
+            @CacheEvict(cacheNames = "jobs", allEntries = true, beforeInvocation = true),
+            @CacheEvict(cacheNames = "jobDetails", key = "#p0", beforeInvocation = true)
     })
     public void deleteJob(int id) {
         if (!repository.deleteById(id)) {
