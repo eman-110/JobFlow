@@ -4,8 +4,12 @@ import com.jobflow.model.Job;
 import com.jobflow.model.JobStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.util.ArrayList;
@@ -19,8 +23,22 @@ import static org.mockito.Mockito.when;
 
 class CacheConfigTest {
     @Test
+    void registersRedisCacheManagerWhenCachingIsEnabled() {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().setActiveProfiles("mysql");
+            context.registerBean(RedisConnectionFactory.class,
+                    () -> mock(RedisConnectionFactory.class));
+            context.register(CacheConfig.class);
+            context.refresh();
+
+            assertInstanceOf(RedisCacheManager.class, context.getBean(CacheManager.class));
+        }
+    }
+
+    @Test
     void configuredJsonSerializerRoundTripsJobListingsAndDetails() {
-        RedisCacheConfiguration configuration = new CacheConfig().redisCacheConfiguration();
+        RedisCacheConfiguration configuration = newCacheConfig().redisCacheConfiguration();
         RedisSerializationContext.SerializationPair<Object> serializer =
                 configuration.getValueSerializationPair();
         Job job = new Job(7, "Engineer", "Example Co", "Remote", 120000);
@@ -42,12 +60,16 @@ class CacheConfigTest {
     void cacheErrorsAreLoggedAndDoNotFailApplicationOperations() {
         Cache cache = mock(Cache.class);
         when(cache.getName()).thenReturn("jobs");
-        CacheErrorHandler errorHandler = new CacheConfig().errorHandler();
+        CacheErrorHandler errorHandler = newCacheConfig().errorHandler();
         RuntimeException failure = new IllegalStateException("Redis unavailable");
 
         assertDoesNotThrow(() -> errorHandler.handleCacheGetError(failure, cache, "all"));
         assertDoesNotThrow(() -> errorHandler.handleCachePutError(failure, cache, "all", "value"));
         assertDoesNotThrow(() -> errorHandler.handleCacheEvictError(failure, cache, "all"));
         assertDoesNotThrow(() -> errorHandler.handleCacheClearError(failure, cache));
+    }
+
+    private static CacheConfig newCacheConfig() {
+        return new CacheConfig(mock(RedisConnectionFactory.class));
     }
 }
